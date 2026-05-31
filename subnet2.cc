@@ -8,6 +8,7 @@
 #include "ns3/netanim-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/mobility-module.h"
+#include "ns3/internet-apps-module.h" // ADDED: Required for PingHelper in modern ns-3
 
 using namespace ns3;
 
