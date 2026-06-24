@@ -1,85 +1,110 @@
-#include "ns3/core-module.h" 
-#include "ns3/network-module.h" 
-#include "ns3/internet-module.h" 
-#include "ns3/point-to-point-module.h" 
-#include "ns3/applications-module.h" 
-#include "ns3/netanim-module.h" 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <sstream>
+#include "ns3/core-module.h"
+#include "ns3/network-module.h"
+#include "ns3/internet-module.h"
+#include "ns3/csma-module.h"
+#include "ns3/netanim-module.h"
+#include "ns3/applications-module.h"
+#include "ns3/mobility-module.h"
+#include "ns3/internet-apps-module.h" // FIX 1: Required header for PingHelper
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("GoBackNExample");
+int main (int argc, char *argv[])
+{
+    uint32_t nSubnets = 5;
+    uint32_t nHosts = 10; // Total 11 nodes per CSMA (10 hosts + 1 router)
 
-int main (int argc, char *argv[]) 
-{ 
-    // Allow overriding parameters from command line 
-    uint32_t payloadSize = 1448;
-    std::string dataRate = "5Mbps";
-    std::string delay = "2ms";
-    
-    CommandLine cmd (__FILE__);
-    cmd.AddValue ("payloadSize", "Payload size in bytes", payloadSize);
-    cmd.Parse (argc, argv);
+    // 1. Create Router
+    NodeContainer router;
+    router.Create(1);
 
-    // Disable SACK to make TCP behave more like standard Go-Back-N
-    Config::SetDefault ("ns3::TcpSocketBase::Sack", BooleanValue (false));
-
-    NodeContainer nodes;
-    nodes.Create (2);
-
-    PointToPointHelper pointToPoint;
-    pointToPoint.SetDeviceAttribute ("DataRate", StringValue (dataRate));
-    pointToPoint.SetChannelAttribute ("Delay", StringValue (delay));
-
-    NetDeviceContainer devices;
-    devices = pointToPoint.Install (nodes);
+    // 2. Setup Mobility for Router (Center point)
+    MobilityHelper mobility;
+    Ptr<ListPositionAllocator> routerPos = CreateObject<ListPositionAllocator>();
+    routerPos->Add(Vector(50.0, 75.0, 0.0)); 
+    mobility.SetPositionAllocator(routerPos);
+    mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+    mobility.Install(router);
 
     InternetStackHelper stack;
-    stack.Install (nodes);
+    stack.Install(router);
+
+    // FIX 3: Explicitly enable IP forwarding on the router so it can route between subnets
+    Ptr<Ipv4> routerIpv4 = router.Get(0)->GetObject<Ipv4>();
+    routerIpv4->SetForwarding(0, true); 
+
+    CsmaHelper csma;
+    csma.SetChannelAttribute("DataRate", StringValue("100Mbps"));
+    csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560)));
 
     Ipv4AddressHelper address;
-    address.SetBase ("10.1.1.0", "255.255.255.0");
-    Ipv4InterfaceContainer interfaces = address.Assign (devices);
+    Ipv4Mask mask("255.255.255.240"); // Provides 14 usable IPs (.1 to .14)
 
-    // Populate routing tables (good practice, even for direct P2P links)
-    Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+    std::vector<NodeContainer> subnetHosts(nSubnets);
+    std::vector<Ipv4InterfaceContainer> interfaces(nSubnets);
 
-    // --- Receiver Setup (Node 1) ---
-    uint16_t port = 8080;
-    Address sinkAddress (InetSocketAddress (interfaces.GetAddress (1), port));
-    PacketSinkHelper packetSinkHelper ("ns3::TcpSocketFactory", sinkAddress);
-    ApplicationContainer sinkApp = packetSinkHelper.Install (nodes.Get (1));
-    sinkApp.Start (Seconds (1.0));
-    sinkApp.Stop (Seconds (10.0));
+    for (uint32_t i = 0; i < nSubnets; ++i)
+    {
+        // Create hosts for this subnet
+        subnetHosts[i].Create(nHosts);
+        stack.Install(subnetHosts[i]);
 
-    // --- Sender Setup (Node 0) --- 
-    // BulkSend will continuously send data to fill the window 
-    BulkSendHelper source ("ns3::TcpSocketFactory", sinkAddress);
-    source.SetAttribute ("MaxBytes", UintegerValue (0)); // 0 means unlimited
-    source.SetAttribute ("SendSize", UintegerValue (payloadSize));
-    ApplicationContainer sourceApp = source.Install (nodes.Get (0));
-    sourceApp.Start (Seconds (2.0));
-    sourceApp.Stop (Seconds (10.0));
+        // Create the CSMA bus for this specific subnet (Router + Hosts)
+        NodeContainer network;
+        network.Add(router.Get(0));
+        network.Add(subnetHosts[i]);
 
-    // --- Error Model Setup --- 
-    Ptr<RateErrorModel> em = CreateObject<RateErrorModel> ();
+        NetDeviceContainer devices = csma.Install(network);
+
+        // Assign IP Addresses
+        std::stringstream ss;
+        ss << "192.168.72." << (i * 16);
+        address.SetBase(ss.str().c_str(), mask);
+        interfaces[i] = address.Assign(devices);
+
+        // Turn on forwarding for the router's newly added interface loop-by-loop
+        routerIpv4->SetForwarding(i, true);
+
+        // Positioning for Hosts in NetAnim (Vertical rows)
+        Ptr<ListPositionAllocator> hostPos = CreateObject<ListPositionAllocator>();
+        for (uint32_t j = 0; j < nHosts; ++j)
+        {
+            hostPos->Add(Vector(150.0 + (j * 20.0), i * 30.0, 0.0));
+        }
+        mobility.SetPositionAllocator(hostPos);
+        mobility.Install(subnetHosts[i]);
+    }
+
+    // Populate routing tables after all interfaces are up
+    Ipv4GlobalRoutingHelper::PopulateRoutingTables();
+
+    // ---- Ping Application ----
+    // Target: Subnet 5 (index 4), Host 0. 
+    // index 0 of interface is the Router, so index 1 is the first host.
+    Ipv4Address targetIp = interfaces[4].GetAddress(1); 
     
-    // FIX: Explicitly set the unit to PACKETS instead of the default BYTES
-    em->SetAttribute ("ErrorUnit", StringValue ("ERROR_UNIT_PACKET")); 
-    
-    // Set the error rate (0.01 means 1% of packets will be dropped) 
-    em->SetAttribute ("ErrorRate", DoubleValue (0.01)); 
+    // Modern ns-3 uses PingHelper instead of V4PingHelper
+    PingHelper ping(targetIp);
+    ping.SetAttribute("Verbose", BooleanValue(true));
 
-    // Attach the error model to Node 1's receiving device 
-    devices.Get (1)->SetAttribute ("ReceiveErrorModel", PointerValue (em));
+    // Install on Subnet 1 (index 0), Host 0
+    ApplicationContainer app = ping.Install(subnetHosts[0].Get(0));
+    app.Start(Seconds(1.0));
+    app.Stop(Seconds(10.0));
 
-    // --- Animation --- 
-    AnimationInterface anim ("gbn-animation.xml");
-    anim.SetConstantPosition (nodes.Get (0), 10.0, 10.0);
-    anim.SetConstantPosition (nodes.Get (1), 60.0, 10.0);
-    anim.EnablePacketMetadata (true); // Enable packet metadata to see sequence numbers
+    // ---- NetAnim ----
+    // FIX 2: Moved NetAnim setup down here to ensure positions are locked in
+    AnimationInterface anim("five_subnets.xml");
+    anim.UpdateNodeDescription(router.Get(0), "MainRouter");
+    anim.UpdateNodeColor(router.Get(0), 255, 0, 0); // Red router
 
-    Simulator::Run ();
-    Simulator::Destroy ();
-    
+    Simulator::Stop(Seconds(11.0));
+    Simulator::Run();
+    Simulator::Destroy();
+
     return 0;
 }
