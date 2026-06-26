@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <sstream>
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
@@ -8,7 +9,7 @@
 #include "ns3/netanim-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/mobility-module.h"
-#include "ns3/internet-apps-module.h" // ADDED: Required for PingHelper in modern ns-3
+#include "ns3/internet-apps-module.h" 
 
 using namespace ns3;
 
@@ -31,6 +32,10 @@ int main (int argc, char *argv[])
 
     InternetStackHelper stack;
     stack.Install(router);
+
+    // Explicitly enable IP forwarding on the router so it can route between subnets
+    Ptr<Ipv4> routerIpv4 = router.Get(0)->GetObject<Ipv4>();
+    routerIpv4->SetAttribute("IpForward", BooleanValue(true));
 
     CsmaHelper csma;
     csma.SetChannelAttribute("DataRate", StringValue("100Mbps"));
@@ -78,7 +83,6 @@ int main (int argc, char *argv[])
     // index 0 of interface is the Router, so index 1 is the first host.
     Ipv4Address targetIp = interfaces[4].GetAddress(1); 
     
-    // Modern ns-3 uses PingHelper instead of V4PingHelper
     PingHelper ping(targetIp);
     ping.SetAttribute("Verbose", BooleanValue(true));
 
