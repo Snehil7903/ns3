@@ -4,7 +4,7 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/netanim-module.h"
-#include "ns3/seq-ts-header.h" // Needed for Sequence Number headers
+#include "ns3/seq-ts-header.h"
 
 using namespace ns3;
 
@@ -17,7 +17,6 @@ NS_LOG_COMPONENT_DEFINE("StopAndWaitSequenceExample");
 class StopWaitSender : public Application
 {
 public:
-  // FIX: Added required GetTypeId for ns-3 Object instantiation
   static TypeId GetTypeId(void)
   {
     static TypeId tid = TypeId("StopWaitSender")
@@ -48,9 +47,14 @@ private:
     SendPacket();
   }
 
-  // FIX: Added StopApplication to cleanly close sockets and prevent segfaults
   virtual void StopApplication(void) override
   {
+    // FIX 1: Must cancel pending events before closing the socket to avoid segfaults
+    if (m_timeoutEvt.IsRunning())
+    {
+      m_timeoutEvt.Cancel();
+    }
+
     if (m_socket)
     {
       m_socket->Close();
@@ -64,18 +68,14 @@ private:
     {
       Ptr<Packet> packet = Create<Packet>(1024);
 
-      // FIX: Physically attach the sequence number to the packet
       SeqTsHeader seqHeader;
       seqHeader.SetSeq(m_seq);
       packet->AddHeader(seqHeader);
 
-      NS_LOG_UNCOND("Sender: Sending Pkt Seq "
-                    << (uint32_t)m_seq << " at "
-                    << Simulator::Now().GetSeconds() << "s");
+      NS_LOG_UNCOND("Sender: Sending Pkt Seq " << m_seq << " at " << Simulator::Now().GetSeconds() << "s");
 
       m_socket->Send(packet);
 
-      // Prevent duplicate timeouts by canceling an existing one if it's a retransmission
       if (m_timeoutEvt.IsRunning())
       {
         m_timeoutEvt.Cancel(); 
@@ -86,20 +86,19 @@ private:
 
   void ReceiveAck(Ptr<Socket> socket)
   {
-    Ptr<Packet> packet = socket->Recv();
+    Ptr<Packet> packet;
     
-    if (packet)
+    // FIX 3: Wrapped Recv() in a while loop to drain the socket buffer fully
+    while ((packet = socket->Recv()))
     {
-      // FIX: Extract sequence number from the incoming ACK
       SeqTsHeader ackHeader;
       packet->RemoveHeader(ackHeader);
       
-      // FIX: Only advance state if the ACK matches our current sequence number
       if (ackHeader.GetSeq() == m_seq)
       {
         m_timeoutEvt.Cancel();
 
-        NS_LOG_UNCOND("Sender: Received ACK for Seq " << (uint32_t)m_seq);
+        NS_LOG_UNCOND("Sender: Received ACK for Seq " << m_seq);
 
         m_seq = 1 - m_seq; // Toggle sequence between 0 and 1
         m_packetsSent++;
@@ -118,7 +117,7 @@ private:
 
   Ptr<Socket> m_socket;
   Address m_peer;
-  uint8_t m_seq;
+  uint32_t m_seq; // FIX 4: Changed to uint32_t to match SeqTsHeader
   uint32_t m_pktCount;
   uint32_t m_packetsSent;
   Time m_timeout;
@@ -132,7 +131,6 @@ private:
 class StopWaitReceiver : public Application
 {
 public:
-  // FIX: Added required GetTypeId
   static TypeId GetTypeId(void)
   {
     static TypeId tid = TypeId("StopWaitReceiver")
@@ -158,7 +156,6 @@ private:
     m_socket->SetRecvCallback(MakeCallback(&StopWaitReceiver::HandleRead, this));
   }
 
-  // FIX: Teardown logic
   virtual void StopApplication(void) override
   {
     if (m_socket)
@@ -175,14 +172,23 @@ private:
 
     while ((packet = socket->RecvFrom(from)))
     {
-      // FIX: Read the sequence number sent by the sender
       SeqTsHeader seqHeader;
       packet->RemoveHeader(seqHeader);
       uint32_t recvSeq = seqHeader.GetSeq();
 
-      NS_LOG_UNCOND("Receiver: Received Packet Seq " << recvSeq << ". Sending ACK...");
+      // FIX 2: Actually check if the received sequence matches what we expect
+      if (recvSeq == m_expectedSeq)
+      {
+        NS_LOG_UNCOND("Receiver: Received expected Packet Seq " << recvSeq << ".");
+        m_expectedSeq = 1 - m_expectedSeq; // Toggle expected sequence
+      }
+      else
+      {
+        NS_LOG_UNCOND("Receiver: Received DUPLICATE Packet Seq " << recvSeq << ". Discarding payload.");
+      }
 
-      // FIX: Attach the received sequence number to the ACK packet
+      // We ALWAYS send an ACK for the received sequence, even if it was a duplicate
+      NS_LOG_UNCOND("Receiver: Sending ACK for Seq " << recvSeq << "...");
       Ptr<Packet> ack = Create<Packet>(10);
       SeqTsHeader ackHeader;
       ackHeader.SetSeq(recvSeq);
@@ -193,7 +199,7 @@ private:
   }
 
   Ptr<Socket> m_socket;
-  uint8_t m_expectedSeq;
+  uint32_t m_expectedSeq; // FIX 4: Changed to uint32_t
 };
 
 /* =======================
@@ -210,6 +216,12 @@ int main(int argc, char *argv[])
   p2p.SetChannelAttribute("Delay", StringValue("2ms"));
 
   NetDeviceContainer devices = p2p.Install(nodes);
+
+  // OPTIONAL ADDITION: Adding an Error Model to actually drop packets and test retransmissions
+  Ptr<RateErrorModel> em = CreateObject<RateErrorModel>();
+  em->SetAttribute("ErrorRate", DoubleValue(0.15)); // 15% drop rate
+  em->SetAttribute("ErrorUnit", StringValue("ERROR_UNIT_PACKET"));
+  devices.Get(1)->SetAttribute("ReceiveErrorModel", PointerValue(em));
 
   InternetStackHelper stack;
   stack.Install(nodes);
@@ -245,7 +257,7 @@ int main(int argc, char *argv[])
   AnimationInterface anim("stopwait.xml");
   anim.SetConstantPosition(nodes.Get(0), 10, 20);
   anim.SetConstantPosition(nodes.Get(1), 50, 20);
-  anim.EnablePacketMetadata(true); // Useful for checking sequences in NetAnim
+  anim.EnablePacketMetadata(true);
 
   Simulator::Run();
   Simulator::Destroy();
