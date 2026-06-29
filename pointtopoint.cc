@@ -14,7 +14,8 @@ int main(int argc, char *argv[])
     CommandLine cmd(__FILE__);
     cmd.Parse(argc, argv);
 
-    Time::SetResolution(Time::NS);
+    // Removed Time::SetResolution(Time::NS) as it is the default and 
+    // can cause initialization crashes in modern ns-3 versions.
 
     LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
     LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
@@ -58,8 +59,8 @@ int main(int argc, char *argv[])
     // NetAnim Visualization
     AnimationInterface anim("first.xml");
 
-    anim.SetConstantPosition(nodes.Get(0), 10, 20);
-    anim.SetConstantPosition(nodes.Get(1), 30, 20);
+    anim.SetConstantPosition(nodes.Get(0), 10.0, 20.0);
+    anim.SetConstantPosition(nodes.Get(1), 30.0, 20.0);
 
     anim.UpdateNodeDescription(nodes.Get(0), "Client");
     anim.UpdateNodeDescription(nodes.Get(1), "Server");
@@ -73,5 +74,3 @@ int main(int argc, char *argv[])
 
     return 0;
 }
-
-correct code. It sets up a simple point-to-point network with two nodes, where one node acts as a UDP echo server and the other as a client. The code also includes NetAnim visualization to show the nodes and their interactions.
