@@ -1,3 +1,4 @@
+#include <string> // FIX 1: Added header for std::to_string
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
@@ -15,7 +16,7 @@ int main (int argc, char *argv[])
     CommandLine cmd(__FILE__);
     cmd.Parse(argc, argv);
 
-    Time::SetResolution(Time::NS);
+    // FIX 2: Removed Time::SetResolution(Time::NS) to comply with modern ns-3 guidelines
 
     // Enable logging to see the communication in the terminal
     LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
