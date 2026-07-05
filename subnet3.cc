@@ -1,90 +1,92 @@
+#include <string> 
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
 #include "ns3/csma-module.h"
+#include "ns3/applications-module.h"
 #include "ns3/netanim-module.h"
-#include "ns3/mobility-module.h"
-
-// Added missing C++ standard library headers
-#include <iostream>
-#include <sstream>
-#include <string>
 
 using namespace ns3;
 
-int main (int argc, char *argv[])
+NS_LOG_COMPONENT_DEFINE("BusTopologyWithNetAnim");
+
+int main (int argc, char *argv[]) 
 {
-    uint32_t nSubnets = 5;
-    uint32_t nHosts = 10;
+    // Use CommandLine to allow changing parameters at runtime
+    CommandLine cmd(__FILE__);
+    cmd.Parse(argc, argv);
 
-    NodeContainer allNodes;
-    InternetStackHelper stack;
-    Ipv4AddressHelper address;
+    // Enable logging to see the communication in the terminal
+    LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
+    LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
 
+    // 1. Create 4 nodes on the bus
+    NodeContainer nodes;
+    nodes.Create(4);
+
+    // 2. Configure CSMA (Models a shared bus cable)
+    // Make sure the object is lowercase 'csma' to match C++ case sensitivity
     CsmaHelper csma;
-    csma.SetChannelAttribute ("DataRate", StringValue ("100Mbps"));
-    csma.SetChannelAttribute ("Delay", TimeValue (NanoSeconds (6560)));
+    csma.SetChannelAttribute("DataRate", StringValue("10Mbps"));
+    csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560)));
 
-    for (uint32_t i = 0; i < nSubnets; ++i)
+    // 3. Install Devices on all nodes
+    NetDeviceContainer devices = csma.Install(nodes);
+
+    // 4. Install Internet Stack
+    InternetStackHelper stack;
+    stack.Install(nodes);
+
+    // 5. Assign IP Addresses (Single subnet for the entire bus)
+    Ipv4AddressHelper address;
+    address.SetBase("10.1.1.0", "255.255.255.0");
+    Ipv4InterfaceContainer interfaces = address.Assign(devices);
+
+    // 6. Install UDP Echo Server on Node 0
+    UdpEchoServerHelper echoServer(9);
+    ApplicationContainer serverApp = echoServer.Install(nodes.Get(0));
+    serverApp.Start(Seconds(1.0));
+    serverApp.Stop(Seconds(10.0));
+
+    // 7. Install UDP Echo Clients on Nodes 1, 2, and 3
+    for (uint32_t i = 1; i < nodes.GetN(); i++) 
     {
-        NodeContainer subnetNodes;
-        subnetNodes.Create (nHosts);
-        allNodes.Add (subnetNodes);
-        stack.Install (subnetNodes);
+        // All clients target the IP of Node 0
+        UdpEchoClientHelper echoClient(interfaces.GetAddress(0), 9);
+        echoClient.SetAttribute("MaxPackets", UintegerValue(1));
+        echoClient.SetAttribute("Interval", TimeValue(Seconds(1.0)));
+        echoClient.SetAttribute("PacketSize", UintegerValue(1024));
 
-        // Position nodes (each subnet in one row)
-        MobilityHelper mobility;
-        Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
-
-        for (uint32_t j = 0; j < nHosts; ++j) {
-            positionAlloc->Add (Vector (j * 10.0, i * 20.0, 0.0));
-        }
-
-        mobility.SetPositionAllocator (positionAlloc);
-        mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
-        mobility.Install (subnetNodes);
-
-        // Connect all nodes in subnet (LAN)
-        NetDeviceContainer devices = csma.Install (subnetNodes);
-
-        // Assign subnet IP safely
-        std::stringstream ss;
-        ss << "192.168." << i << ".0";
-        std::string baseIp = ss.str(); // Prevents temporary string destruction issues
-        address.SetBase (baseIp.c_str(), "255.255.255.0");
-
-        Ipv4InterfaceContainer interfaces = address.Assign (devices);
-
-        // Print all host IPs
-        std::cout << "\n=== Subnet " << i << " ===" << std::endl;
-        for (uint32_t j = 0; j < nHosts; ++j) {
-            std::cout << "Host-" << j << " : "
-                      << interfaces.GetAddress(j) << std::endl;
-        }
+        ApplicationContainer clientApp = echoClient.Install(nodes.Get(i));
+        clientApp.Start(Seconds(2.0 + i)); // Staggered start to prevent collisions
+        clientApp.Stop(Seconds(10.0));
     }
 
-    // NetAnim configuration
-    AnimationInterface anim ("subnet_simulation.xml");
+    // 8. NetAnim Visualization Section
+    AnimationInterface anim("bus-topology.xml");
+    anim.EnablePacketMetadata(true); // Allows viewing packet info in NetAnim
 
-    // Show IP on each node
-    for (uint32_t i = 0; i < allNodes.GetN (); ++i) {
-        Ptr<Ipv4> ipv4 = allNodes.Get(i)->GetObject<Ipv4>();
+    // Arrange nodes in a horizontal bus layout
+    int x_start = 10;
+    int y_pos = 30;
+    for (uint32_t i = 0; i < nodes.GetN(); i++) 
+    {
+        anim.SetConstantPosition(nodes.Get(i), x_start + i * 20, y_pos);
+        
+        std::string desc = (i == 0) ? "Server" : "Client " + std::to_string(i);
+        anim.UpdateNodeDescription(nodes.Get(i), desc);
 
-        std::ostringstream ip;
-        // Index 1 is the CSMA interface (Index 0 is loopback)
-        ip << ipv4->GetAddress(1,0).GetLocal();
-
-        // Safely use GetId() for the node description update
-        anim.UpdateNodeDescription(
-            allNodes.Get(i)->GetId(),
-            "Host-" + std::to_string(i) + "\n" + ip.str()
-        );
+        // Server is Red, Clients are Blue
+        if (i == 0)
+            anim.UpdateNodeColor(nodes.Get(i), 255, 0, 0);
+        else
+            anim.UpdateNodeColor(nodes.Get(i), 0, 0, 255);
     }
 
-    // Stop the simulation at 10 seconds so NetAnim captures the layout properly
-    Simulator::Stop (Seconds (10.0)); 
-    Simulator::Run ();
-    Simulator::Destroy ();
-    
+    // 9. Simulation Execution
+    Simulator::Stop(Seconds(11.0)); // Ensure simulation stops after apps
+    Simulator::Run();
+    Simulator::Destroy();
+
     return 0;
 }
