@@ -9,20 +9,20 @@
 #include "ns3/netanim-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/mobility-module.h"
-#include "ns3/internet-apps-module.h" // FIX 1: Required header for PingHelper
+#include "ns3/internet-apps-module.h"
 
 using namespace ns3;
 
 int main (int argc, char *argv[])
 {
     uint32_t nSubnets = 5;
-    uint32_t nHosts = 10; // Total 11 nodes per CSMA (10 hosts + 1 router)
+    uint32_t nHosts = 10;
 
-    // 1. Create Router
+    // 1. Create Nodes
     NodeContainer router;
     router.Create(1);
 
-    // 2. Setup Mobility for Router (Center point)
+    // 2. Setup Router Mobility
     MobilityHelper mobility;
     Ptr<ListPositionAllocator> routerPos = CreateObject<ListPositionAllocator>();
     routerPos->Add(Vector(50.0, 75.0, 0.0)); 
@@ -33,43 +33,33 @@ int main (int argc, char *argv[])
     InternetStackHelper stack;
     stack.Install(router);
 
-    // FIX 3: Explicitly enable IP forwarding on the router so it can route between subnets
-    Ptr<Ipv4> routerIpv4 = router.Get(0)->GetObject<Ipv4>();
-    routerIpv4->SetForwarding(0, true); 
-
     CsmaHelper csma;
     csma.SetChannelAttribute("DataRate", StringValue("100Mbps"));
     csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560)));
 
     Ipv4AddressHelper address;
-    Ipv4Mask mask("255.255.255.240"); // Provides 14 usable IPs (.1 to .14)
+    Ipv4Mask mask("255.255.255.240");
 
     std::vector<NodeContainer> subnetHosts(nSubnets);
     std::vector<Ipv4InterfaceContainer> interfaces(nSubnets);
 
     for (uint32_t i = 0; i < nSubnets; ++i)
     {
-        // Create hosts for this subnet
         subnetHosts[i].Create(nHosts);
         stack.Install(subnetHosts[i]);
 
-        // Create the CSMA bus for this specific subnet (Router + Hosts)
         NodeContainer network;
         network.Add(router.Get(0));
         network.Add(subnetHosts[i]);
 
-        NetDeviceContainer devices = csma.Install(network);
+        csma.Install(network);
 
-        // Assign IP Addresses
         std::stringstream ss;
         ss << "192.168.72." << (i * 16);
         address.SetBase(ss.str().c_str(), mask);
-        interfaces[i] = address.Assign(devices);
+        interfaces[i] = address.Assign(csma.Install(network)); 
 
-        // Turn on forwarding for the router's newly added interface loop-by-loop
-        routerIpv4->SetForwarding(i, true);
-
-        // Positioning for Hosts in NetAnim (Vertical rows)
+        // Positioning for Hosts
         Ptr<ListPositionAllocator> hostPos = CreateObject<ListPositionAllocator>();
         for (uint32_t j = 0; j < nHosts; ++j)
         {
@@ -79,28 +69,25 @@ int main (int argc, char *argv[])
         mobility.Install(subnetHosts[i]);
     }
 
-    // Populate routing tables after all interfaces are up
+    // FIX: Enable Forwarding on the router globally
+    Ptr<Ipv4> ipv4 = router.Get(0)->GetObject<Ipv4>();
+    ipv4->SetAttribute("IpForward", BooleanValue(true));
+
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
     // ---- Ping Application ----
-    // Target: Subnet 5 (index 4), Host 0. 
-    // index 0 of interface is the Router, so index 1 is the first host.
     Ipv4Address targetIp = interfaces[4].GetAddress(1); 
-    
-    // Modern ns-3 uses PingHelper instead of V4PingHelper
     PingHelper ping(targetIp);
     ping.SetAttribute("Verbose", BooleanValue(true));
 
-    // Install on Subnet 1 (index 0), Host 0
     ApplicationContainer app = ping.Install(subnetHosts[0].Get(0));
     app.Start(Seconds(1.0));
     app.Stop(Seconds(10.0));
 
     // ---- NetAnim ----
-    // FIX 2: Moved NetAnim setup down here to ensure positions are locked in
     AnimationInterface anim("five_subnets.xml");
     anim.UpdateNodeDescription(router.Get(0), "MainRouter");
-    anim.UpdateNodeColor(router.Get(0), 255, 0, 0); // Red router
+    anim.UpdateNodeColor(router.Get(0), 255, 0, 0);
 
     Simulator::Stop(Seconds(11.0));
     Simulator::Run();
