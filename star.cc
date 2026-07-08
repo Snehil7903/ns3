@@ -6,6 +6,8 @@
 #include "ns3/netanim-module.h"
 #include <cmath>
 #include <vector>
+#include <sstream> // FIX 1: Required for std::ostringstream
+#include <string>  // FIX 2: Required for std::to_string
 
 // Ensure M_PI is defined for math calculations
 #ifndef M_PI
@@ -24,7 +26,7 @@ int main(int argc, char *argv[])
     cmd.AddValue("nLeaf", "Number of leaf nodes", nLeaf);
     cmd.Parse(argc, argv);
 
-    Time::SetResolution(Time::NS);
+    // FIX 3: Removed Time::SetResolution(Time::NS) to follow modern ns-3 guidelines
 
     LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
     LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
@@ -74,8 +76,9 @@ int main(int argc, char *argv[])
     // 5. Install UDP Echo Clients on Leaves
     for (uint32_t i = 0; i < nLeaf; i++)
     {
-        // The Hub's IP for this specific link is the first index (0) of each 2-node interface pair
-        Ipv4Address hubAddress = interfaces.GetAddress(i * 2, 0);
+        // FIX 4: Simplified to the standard single-argument GetAddress call.
+        // The Hub's IP for this specific link is the first index (0, 2, 4...) of each 2-node pair
+        Ipv4Address hubAddress = interfaces.GetAddress(i * 2);
 
         UdpEchoClientHelper echoClient(hubAddress, 9);
         echoClient.SetAttribute("MaxPackets", UintegerValue(1));
@@ -110,7 +113,7 @@ int main(int argc, char *argv[])
         anim.UpdateNodeColor(leafNodes.Get(i), 0, 0, 255); // Blue
     }
 
-    // Optional: Enable packet tracing to see packet flow in NetAnim
+    // Enable packet tracing to see packet flow in NetAnim
     anim.EnablePacketMetadata(true); 
 
     // 7. Run Simulation
