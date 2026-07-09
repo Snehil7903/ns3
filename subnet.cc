@@ -28,7 +28,8 @@ int main (int argc, char *argv[])
     p2p.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
     p2p.SetChannelAttribute ("Delay", StringValue ("2ms"));
 
-    Ipv4Mask subnetMask("255.255.255.240");
+    // FIX 1: Upgraded mask from /28 (240) to /27 (224) to support up to 30 IPs per group
+    Ipv4Mask subnetMask("255.255.255.224");
 
     for (uint32_t i = 0; i < nSubnets; ++i)
     {
@@ -50,8 +51,8 @@ int main (int argc, char *argv[])
 
         // --- IP Address Assignment ---
         std::stringstream ss;
-        // Using (i * 16) ensures subnets don't overlap with a /28 mask (255.255.255.240)
-        ss << "192.168.72." << (i * 16);
+        // FIX 2: Stride by 32 to ensure the /27 subnets do not overlap
+        ss << "192.168.72." << (i * 32);
         address.SetBase (ss.str ().c_str (), subnetMask);
 
         for (uint32_t j = 0; j < nHosts - 1; ++j) {
@@ -60,8 +61,11 @@ int main (int argc, char *argv[])
         }
     }
 
+    // Good practice: Populate routing tables so nodes know about each other 
+    // if you decide to add Ping or UDP applications later.
+    Ipv4GlobalRoutingHelper::PopulateRoutingTables();
+
     // --- NetAnim Configuration ---
-    // Move this here to ensure all node properties are captured
     AnimationInterface anim ("subnet_simulation.xml"); 
 
     for (uint32_t i = 0; i < allNodes.GetN(); ++i) {
