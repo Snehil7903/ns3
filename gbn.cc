@@ -52,12 +52,15 @@ int main (int argc, char *argv[])
         network.Add(router.Get(0));
         network.Add(subnetHosts[i]);
 
-        csma.Install(network);
+        // FIX: Install CSMA devices exactly once and store them
+        NetDeviceContainer devices = csma.Install(network);
 
         std::stringstream ss;
         ss << "192.168.72." << (i * 16);
         address.SetBase(ss.str().c_str(), mask);
-        interfaces[i] = address.Assign(csma.Install(network)); 
+        
+        // FIX: Assign IPs to the stored devices
+        interfaces[i] = address.Assign(devices); 
 
         // Positioning for Hosts
         Ptr<ListPositionAllocator> hostPos = CreateObject<ListPositionAllocator>();
@@ -69,7 +72,7 @@ int main (int argc, char *argv[])
         mobility.Install(subnetHosts[i]);
     }
 
-    // FIX: Enable Forwarding on the router globally
+    // Enable Forwarding on the router globally
     Ptr<Ipv4> ipv4 = router.Get(0)->GetObject<Ipv4>();
     ipv4->SetAttribute("IpForward", BooleanValue(true));
 
