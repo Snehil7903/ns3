@@ -5,6 +5,8 @@
 #include "ns3/applications-module.h"
 #include "ns3/netanim-module.h"
 #include <cmath>
+#include <sstream> // FIX 1: Required for std::ostringstream
+#include <string>  // FIX 2: Required for std::to_string
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -22,7 +24,7 @@ int main(int argc, char *argv[])
     cmd.AddValue("nNodes", "Number of nodes in the mesh", nNodes);
     cmd.Parse(argc, argv);
 
-    Time::SetResolution(Time::NS);
+    // FIX 3: Removed Time::SetResolution(Time::NS) to follow modern ns-3 guidelines
 
     // 1. Create Nodes
     NodeContainer nodes;
@@ -56,14 +58,16 @@ int main(int argc, char *argv[])
         }
     }
 
-    // 5. Global Routing (Crucial for Mesh)
-    // This tells nodes how to jump through neighbors to reach distant nodes
+    // 5. Global Routing
+    // While a full mesh means every node is 1 hop away, populating 
+    // routing tables ensures nodes know which specific interface to use.
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-    // 6. Install Application (Example: Node 0 sends to Node 4)
+    // 6. Install Application (Example: Node 0 sends to the last Node)
     uint32_t destNode = nNodes - 1;
-    // We get the IP address of the destination node (Node 4) 
-    // from the first interface it has.
+    
+    // We get the IP address of the destination node 
+    // from the first physical interface it has.
     Ptr<Ipv4> ipv4 = nodes.Get(destNode)->GetObject<Ipv4>();
     Ipv4Address addr = ipv4->GetAddress(1, 0).GetLocal(); 
 
