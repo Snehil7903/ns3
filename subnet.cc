@@ -14,7 +14,6 @@ NS_LOG_COMPONENT_DEFINE ("SubnetSimulation");
 
 int main (int argc, char *argv[])
 {
-    // Log configuration to see progress in terminal
     LogComponentEnable ("SubnetSimulation", LOG_LEVEL_INFO);
 
     uint32_t nSubnets = 5;
@@ -28,8 +27,8 @@ int main (int argc, char *argv[])
     p2p.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
     p2p.SetChannelAttribute ("Delay", StringValue ("2ms"));
 
-    // FIX 1: Upgraded mask from /28 (240) to /27 (224) to support up to 30 IPs per group
-    Ipv4Mask subnetMask("255.255.255.224");
+    // We will use a global counter to ensure every single link gets a unique subnet
+    uint32_t linkSubnetCounter = 1;
 
     for (uint32_t i = 0; i < nSubnets; ++i)
     {
@@ -42,7 +41,6 @@ int main (int argc, char *argv[])
         MobilityHelper mobility;
         Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
         for (uint32_t j = 0; j < nHosts; ++j) {
-            // Space nodes out: X = host index, Y = subnet index
             positionAlloc->Add (Vector (j * 20.0, i * 30.0, 0.0)); 
         }
         mobility.SetPositionAllocator (positionAlloc);
@@ -50,19 +48,20 @@ int main (int argc, char *argv[])
         mobility.Install (subnetNodes);
 
         // --- IP Address Assignment ---
-        std::stringstream ss;
-        // FIX 2: Stride by 32 to ensure the /27 subnets do not overlap
-        ss << "192.168.72." << (i * 32);
-        address.SetBase (ss.str ().c_str (), subnetMask);
-
         for (uint32_t j = 0; j < nHosts - 1; ++j) {
             NetDeviceContainer d = p2p.Install (subnetNodes.Get(j), subnetNodes.Get(j+1));
+            
+            // FIX: Create a unique /30 subnet for EVERY single link (e.g., 10.1.1.0, 10.1.2.0...)
+            std::stringstream ss;
+            ss << "10.1." << linkSubnetCounter++ << ".0";
+            
+            // 255.255.255.252 is a /30 mask (exactly 2 usable IPs for a P2P link)
+            address.SetBase (ss.str().c_str(), "255.255.255.252"); 
             address.Assign (d);
         }
     }
 
-    // Good practice: Populate routing tables so nodes know about each other 
-    // if you decide to add Ping or UDP applications later.
+    // Now the routing helper can perfectly map out the network because there are no overlapping subnets
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
     // --- NetAnim Configuration ---
