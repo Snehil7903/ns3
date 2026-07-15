@@ -6,10 +6,9 @@
 #include "ns3/netanim-module.h"
 #include <cmath>
 #include <vector>
-#include <sstream> // FIX 1: Required for std::ostringstream
-#include <string>  // FIX 2: Required for std::to_string
+#include <sstream> 
+#include <string>  
 
-// Ensure M_PI is defined for math calculations
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -25,8 +24,6 @@ int main(int argc, char *argv[])
     CommandLine cmd;
     cmd.AddValue("nLeaf", "Number of leaf nodes", nLeaf);
     cmd.Parse(argc, argv);
-
-    // FIX 3: Removed Time::SetResolution(Time::NS) to follow modern ns-3 guidelines
 
     LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
     LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
@@ -76,7 +73,6 @@ int main(int argc, char *argv[])
     // 5. Install UDP Echo Clients on Leaves
     for (uint32_t i = 0; i < nLeaf; i++)
     {
-        // FIX 4: Simplified to the standard single-argument GetAddress call.
         // The Hub's IP for this specific link is the first index (0, 2, 4...) of each 2-node pair
         Ipv4Address hubAddress = interfaces.GetAddress(i * 2);
 
