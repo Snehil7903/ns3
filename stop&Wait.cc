@@ -14,9 +14,9 @@ int main(int argc, char *argv[])
     CommandLine cmd;
     cmd.Parse(argc, argv);
 
-    Time::SetResolution(Time::NS);
+    // Removed Time::SetResolution(Time::NS) to ensure compatibility with modern ns-3 builds
 
-    // Enable logging to see the "Send" and "Receive" events clearly
+    // Enable logging to see the "Send" and "Receive" events clearly in the terminal
     LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
     LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
 
@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
     nodes.Create(2);
 
     // 2. Configure Point-to-Point Link
-    // We use a slow DataRate and high Delay to visualize the "Wait" clearly
+    // We use a slow DataRate and high Delay to visualize the "Wait" clearly in NetAnim
     PointToPointHelper p2p;
     p2p.SetDeviceAttribute("DataRate", StringValue("512Kbps"));
     p2p.SetChannelAttribute("Delay", StringValue("50ms"));
@@ -47,9 +47,9 @@ int main(int argc, char *argv[])
     serverApp.Stop(Seconds(10.0));
 
     // 5. Install UDP Echo Client (The Sender) on Node 0
-    // Stop-and-Wait behavior: MaxPackets=1 means it sends one and waits for the echo.
+    // FIX: Increased MaxPackets to 5 to show a continuous Stop-and-Wait cycle over time
     UdpEchoClientHelper echoClient(interfaces.GetAddress(1), 9);
-    echoClient.SetAttribute("MaxPackets", UintegerValue(1)); 
+    echoClient.SetAttribute("MaxPackets", UintegerValue(5)); 
     echoClient.SetAttribute("Interval", TimeValue(Seconds(1.0))); 
     echoClient.SetAttribute("PacketSize", UintegerValue(1024));
 
