@@ -9,14 +9,14 @@
 #include "ns3/netanim-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/mobility-module.h"
-#include "ns3/internet-apps-module.h" 
+#include "ns3/internet-apps-module.h"
 
 using namespace ns3;
 
 int main (int argc, char *argv[])
 {
     uint32_t nSubnets = 5;
-    uint32_t nHosts = 10; // Total 11 nodes per CSMA (10 hosts + 1 router)
+    uint32_t nHosts = 10;
 
     // 1. Create Router
     NodeContainer router;
@@ -42,7 +42,7 @@ int main (int argc, char *argv[])
     csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560)));
 
     Ipv4AddressHelper address;
-    Ipv4Mask mask("255.255.255.240"); // Provides 14 usable IPs (.1 to .14)
+    Ipv4Mask mask("255.255.255.240"); // Provides 14 usable IPs per subnet (.1 to .14)
 
     std::vector<NodeContainer> subnetHosts(nSubnets);
     std::vector<Ipv4InterfaceContainer> interfaces(nSubnets);
@@ -60,10 +60,10 @@ int main (int argc, char *argv[])
 
         NetDeviceContainer devices = csma.Install(network);
 
-        // Assign IP Addresses
+        // Assign IP Addresses ensuring no overlap by striding by 16
         std::stringstream ss;
         ss << "192.168.72." << (i * 16);
-        address.SetBase(ss.str().c_str(), mask);
+        address.SetBase(Ipv4Address(ss.str().c_str()), mask);
         interfaces[i] = address.Assign(devices);
 
         // Positioning for Hosts in NetAnim (Vertical rows)
@@ -76,6 +76,7 @@ int main (int argc, char *argv[])
         mobility.Install(subnetHosts[i]);
     }
 
+    // Populate routing tables after all networks are created and IPs are assigned
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
     // ---- Ping Application ----
