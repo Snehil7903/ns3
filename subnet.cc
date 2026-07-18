@@ -16,6 +16,10 @@ int main (int argc, char *argv[])
 {
     LogComponentEnable ("SubnetSimulation", LOG_LEVEL_INFO);
 
+    // CRITICAL FIX: Enable IP Forwarding globally so the intermediate nodes 
+    // in the daisy-chain are allowed to route traffic to the next hop.
+    Config::SetDefault("ns3::Ipv4::IpForward", BooleanValue(true));
+
     uint32_t nSubnets = 5;
     uint32_t nHosts = 10;
 
@@ -27,7 +31,7 @@ int main (int argc, char *argv[])
     p2p.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
     p2p.SetChannelAttribute ("Delay", StringValue ("2ms"));
 
-    // We will use a global counter to ensure every single link gets a unique subnet
+    // We use a global counter to ensure every single link gets a unique subnet
     uint32_t linkSubnetCounter = 1;
 
     for (uint32_t i = 0; i < nSubnets; ++i)
@@ -51,17 +55,17 @@ int main (int argc, char *argv[])
         for (uint32_t j = 0; j < nHosts - 1; ++j) {
             NetDeviceContainer d = p2p.Install (subnetNodes.Get(j), subnetNodes.Get(j+1));
             
-            // FIX: Create a unique /30 subnet for EVERY single link (e.g., 10.1.1.0, 10.1.2.0...)
+            // Create a unique /30 subnet for EVERY single link
             std::stringstream ss;
             ss << "10.1." << linkSubnetCounter++ << ".0";
             
-            // 255.255.255.252 is a /30 mask (exactly 2 usable IPs for a P2P link)
-            address.SetBase (ss.str().c_str(), "255.255.255.252"); 
+            // Safely cast to Ipv4Address and use a /30 mask (exactly 2 usable IPs for a P2P link)
+            address.SetBase (Ipv4Address(ss.str().c_str()), Ipv4Mask("255.255.255.252")); 
             address.Assign (d);
         }
     }
 
-    // Now the routing helper can perfectly map out the network because there are no overlapping subnets
+    // Now the routing helper can perfectly map out the network
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
     // --- NetAnim Configuration ---
