@@ -15,6 +15,9 @@ using namespace ns3;
 
 int main (int argc, char *argv[])
 {
+    // FIX 1: Safest way to enable forwarding globally before creating stacks
+    Config::SetDefault("ns3::Ipv4::IpForward", BooleanValue(true));
+
     uint32_t nSubnets = 5;
     uint32_t nHosts = 10;
 
@@ -52,14 +55,17 @@ int main (int argc, char *argv[])
         network.Add(router.Get(0));
         network.Add(subnetHosts[i]);
 
-        // FIX: Install CSMA devices exactly once and store them
+        // Install CSMA devices exactly once and store them
         NetDeviceContainer devices = csma.Install(network);
 
         std::stringstream ss;
         ss << "192.168.72." << (i * 16);
-        address.SetBase(ss.str().c_str(), mask);
         
-        // FIX: Assign IPs to the stored devices
+        // FIX 2: Store in a variable to prevent dangling pointer crashes
+        std::string subnetStr = ss.str();
+        address.SetBase(subnetStr.c_str(), mask);
+        
+        // Assign IPs to the stored devices
         interfaces[i] = address.Assign(devices); 
 
         // Positioning for Hosts
@@ -71,10 +77,6 @@ int main (int argc, char *argv[])
         mobility.SetPositionAllocator(hostPos);
         mobility.Install(subnetHosts[i]);
     }
-
-    // Enable Forwarding on the router globally
-    Ptr<Ipv4> ipv4 = router.Get(0)->GetObject<Ipv4>();
-    ipv4->SetAttribute("IpForward", BooleanValue(true));
 
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
