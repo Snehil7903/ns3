@@ -49,7 +49,7 @@ private:
 
   virtual void StopApplication(void) override
   {
-    // FIX 1: Must cancel pending events before closing the socket to avoid segfaults
+    // Cancel pending events before closing the socket to avoid segfaults
     if (m_timeoutEvt.IsRunning())
     {
       m_timeoutEvt.Cancel();
@@ -88,7 +88,7 @@ private:
   {
     Ptr<Packet> packet;
     
-    // FIX 3: Wrapped Recv() in a while loop to drain the socket buffer fully
+    // Drain the socket buffer fully
     while ((packet = socket->Recv()))
     {
       SeqTsHeader ackHeader;
@@ -117,7 +117,7 @@ private:
 
   Ptr<Socket> m_socket;
   Address m_peer;
-  uint32_t m_seq; // FIX 4: Changed to uint32_t to match SeqTsHeader
+  uint32_t m_seq; 
   uint32_t m_pktCount;
   uint32_t m_packetsSent;
   Time m_timeout;
@@ -176,7 +176,6 @@ private:
       packet->RemoveHeader(seqHeader);
       uint32_t recvSeq = seqHeader.GetSeq();
 
-      // FIX 2: Actually check if the received sequence matches what we expect
       if (recvSeq == m_expectedSeq)
       {
         NS_LOG_UNCOND("Receiver: Received expected Packet Seq " << recvSeq << ".");
@@ -187,7 +186,7 @@ private:
         NS_LOG_UNCOND("Receiver: Received DUPLICATE Packet Seq " << recvSeq << ". Discarding payload.");
       }
 
-      // We ALWAYS send an ACK for the received sequence, even if it was a duplicate
+      // ALWAYS send an ACK for the received sequence, even if it was a duplicate
       NS_LOG_UNCOND("Receiver: Sending ACK for Seq " << recvSeq << "...");
       Ptr<Packet> ack = Create<Packet>(10);
       SeqTsHeader ackHeader;
@@ -199,7 +198,7 @@ private:
   }
 
   Ptr<Socket> m_socket;
-  uint32_t m_expectedSeq; // FIX 4: Changed to uint32_t
+  uint32_t m_expectedSeq; 
 };
 
 /* =======================
@@ -217,7 +216,7 @@ int main(int argc, char *argv[])
 
   NetDeviceContainer devices = p2p.Install(nodes);
 
-  // OPTIONAL ADDITION: Adding an Error Model to actually drop packets and test retransmissions
+  // Error Model: drops packets to verify retransmission logic
   Ptr<RateErrorModel> em = CreateObject<RateErrorModel>();
   em->SetAttribute("ErrorRate", DoubleValue(0.15)); // 15% drop rate
   em->SetAttribute("ErrorUnit", StringValue("ERROR_UNIT_PACKET"));
@@ -232,7 +231,7 @@ int main(int argc, char *argv[])
 
   uint16_t port = 8080;
 
-  /* Receiver */
+  /* Receiver Configuration */
   Ptr<Socket> recvSocket = Socket::CreateSocket(nodes.Get(1), UdpSocketFactory::GetTypeId());
   InetSocketAddress local = InetSocketAddress(Ipv4Address::GetAny(), port);
   recvSocket->Bind(local);
@@ -243,7 +242,7 @@ int main(int argc, char *argv[])
   receiver->SetStartTime(Seconds(0.0));
   receiver->SetStopTime(Seconds(20.0));
 
-  /* Sender */
+  /* Sender Configuration */
   Ptr<Socket> sendSocket = Socket::CreateSocket(nodes.Get(0), UdpSocketFactory::GetTypeId());
 
   Ptr<StopWaitSender> sender = CreateObject<StopWaitSender>();
@@ -253,10 +252,14 @@ int main(int argc, char *argv[])
   sender->SetStartTime(Seconds(1.0));
   sender->SetStopTime(Seconds(20.0));
 
-  /* NetAnim */
+  /* NetAnim Configuration */
   AnimationInterface anim("stopwait.xml");
   anim.SetConstantPosition(nodes.Get(0), 10, 20);
   anim.SetConstantPosition(nodes.Get(1), 50, 20);
+  
+  anim.UpdateNodeDescription(nodes.Get(0), "Sender");
+  anim.UpdateNodeDescription(nodes.Get(1), "Receiver");
+  
   anim.EnablePacketMetadata(true);
 
   Simulator::Run();
