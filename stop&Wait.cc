@@ -3,7 +3,8 @@
 #include "ns3/internet-module.h"
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
-#include "ns3/netanim-module.h"
+// Use the precise header to guarantee modern ns-3 compatibility
+#include "ns3/netanim-module.h" 
 
 using namespace ns3;
 
@@ -14,8 +15,6 @@ int main(int argc, char *argv[])
     CommandLine cmd;
     cmd.Parse(argc, argv);
 
-    // Removed Time::SetResolution(Time::NS) to ensure compatibility with modern ns-3 builds
-
     // Enable logging to see the "Send" and "Receive" events clearly in the terminal
     LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
     LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
@@ -25,10 +24,9 @@ int main(int argc, char *argv[])
     nodes.Create(2);
 
     // 2. Configure Point-to-Point Link
-    // We use a slow DataRate and high Delay to visualize the "Wait" clearly in NetAnim
     PointToPointHelper p2p;
     p2p.SetDeviceAttribute("DataRate", StringValue("512Kbps"));
-    p2p.SetChannelAttribute("Delay", StringValue("50ms"));
+    p2p.SetChannelAttribute("Delay", StringValue("50ms")); // 50ms Delay
 
     NetDeviceContainer devices = p2p.Install(nodes);
 
@@ -47,10 +45,12 @@ int main(int argc, char *argv[])
     serverApp.Stop(Seconds(10.0));
 
     // 5. Install UDP Echo Client (The Sender) on Node 0
-    // FIX: Increased MaxPackets to 5 to show a continuous Stop-and-Wait cycle over time
     UdpEchoClientHelper echoClient(interfaces.GetAddress(1), 9);
     echoClient.SetAttribute("MaxPackets", UintegerValue(5)); 
-    echoClient.SetAttribute("Interval", TimeValue(Seconds(1.0))); 
+    
+    // FIX: Reduced interval to 150ms. 
+    // This allows the node to process the 100ms RTT and send the next block sequentially.
+    echoClient.SetAttribute("Interval", TimeValue(MilliSeconds(150))); 
     echoClient.SetAttribute("PacketSize", UintegerValue(1024));
 
     ApplicationContainer clientApp = echoClient.Install(nodes.Get(0));
