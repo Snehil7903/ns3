@@ -13,14 +13,15 @@ NS_LOG_COMPONENT_DEFINE ("HammingCodeExample");
 // Function to calculate residual packet error rate after Hamming (7,4) correction 
 double CalculateHammingResidualError (double ber, uint32_t totalFrameSize) 
 { 
-    // Probability of 2 or more errors in a 7-bit block (Uncorrectable) 
+    // Probability of 2 or more errors in a 7-bit block (Uncorrectable by Hamming) 
     // P(unfixable) = 1 - [P(0 errors) + P(1 error)] 
     double p0 = pow (1.0 - ber, 7);
     double p1 = 7.0 * ber * pow (1.0 - ber, 6);
     double pBlockError = 1.0 - (p0 + p1);
 
-    // Number of 4-bit data blocks in the ENTIRE physical frame
-    double numBlocks = (totalFrameSize * 8.0) / 4.0;
+    // FIX: A packet with (totalFrameSize * 8) data bits requires 
+    // exactly this many 4-bit chunks, each expanding to a 7-bit physical block.
+    double numBlocks = ceil((totalFrameSize * 8.0) / 4.0);
     
     // Probability that at least one block in the packet fails 
     return 1.0 - pow (1.0 - pBlockError, numBlocks);
@@ -33,12 +34,14 @@ int main (int argc, char *argv[])
     
     // IP (20) + UDP (8) + PPP (2) = 30 bytes of overhead
     uint32_t overheadSize = 30; 
-    uint32_t frameSize = payloadSize + overheadSize;
 
     CommandLine cmd (__FILE__);
     cmd.AddValue ("ber", "Raw Bit Error Rate", ber);
     cmd.AddValue ("payloadSize", "UDP Payload Size", payloadSize);
     cmd.Parse (argc, argv);
+
+    // Recalculate frame size after command line variables are parsed
+    uint32_t frameSize = payloadSize + overheadSize;
 
     NodeContainer nodes;
     nodes.Create (2);
@@ -51,7 +54,6 @@ int main (int argc, char *argv[])
     devices = pointToPoint.Install (nodes);
 
     // --- Hamming Error Correction Simulation --- 
-    // Calculate using the FULL frame size that the NetDevice actually sees
     double residualPER = CalculateHammingResidualError (ber, frameSize);
     
     Ptr<RateErrorModel> em = CreateObject<RateErrorModel> ();
@@ -61,7 +63,7 @@ int main (int argc, char *argv[])
     devices.Get (1)->SetAttribute ("ReceiveErrorModel", PointerValue (em));
     
     std::cout << "Raw BER: " << ber << std::endl;
-    std::cout << "Total Frame Size on wire: " << frameSize << " bytes" << std::endl;
+    std::cout << "Total Unencoded Frame Size: " << frameSize << " bytes" << std::endl;
     std::cout << "Residual Packet Error Rate after Hamming (7,4): " << residualPER << std::endl;
 
     InternetStackHelper stack;
