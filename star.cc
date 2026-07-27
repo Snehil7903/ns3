@@ -45,7 +45,8 @@ int main(int argc, char *argv[])
     p2p.SetDeviceAttribute("DataRate", StringValue("5Mbps"));
     p2p.SetChannelAttribute("Delay", StringValue("2ms"));
 
-    Ipv4InterfaceContainer interfaces;
+    // FIX 1: Use a vector of containers to keep track of individual link subnets cleanly
+    std::vector<Ipv4InterfaceContainer> linkInterfaces;
 
     // Connect each leaf to the hub
     for (uint32_t i = 0; i < nLeaf; i++)
@@ -61,7 +62,7 @@ int main(int argc, char *argv[])
         address.SetBase(subnet.str().c_str(), "255.255.255.0");
 
         Ipv4InterfaceContainer iface = address.Assign(linkDevices);
-        interfaces.Add(iface); 
+        linkInterfaces.push_back(iface); 
     }
 
     // 4. Install UDP Echo Server on Hub
@@ -73,8 +74,8 @@ int main(int argc, char *argv[])
     // 5. Install UDP Echo Clients on Leaves
     for (uint32_t i = 0; i < nLeaf; i++)
     {
-        // The Hub's IP for this specific link is the first index (0, 2, 4...) of each 2-node pair
-        Ipv4Address hubAddress = interfaces.GetAddress(i * 2);
+        // FIX 2: Safely target the Hub's IP address (index 0 of that specific link pair)
+        Ipv4Address hubAddress = linkInterfaces[i].GetAddress(0);
 
         UdpEchoClientHelper echoClient(hubAddress, 9);
         echoClient.SetAttribute("MaxPackets", UintegerValue(1));
