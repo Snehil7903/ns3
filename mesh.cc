@@ -5,8 +5,8 @@
 #include "ns3/applications-module.h"
 #include "ns3/netanim-module.h"
 #include <cmath>
-#include <sstream> // FIX 1: Required for std::ostringstream
-#include <string>  // FIX 2: Required for std::to_string
+#include <sstream> 
+#include <string>  
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -18,13 +18,11 @@ NS_LOG_COMPONENT_DEFINE("FullMeshTopology");
 
 int main(int argc, char *argv[])
 {
-    uint32_t nNodes = 5; // Total nodes in the mesh
+    uint32_t nNodes = 5; 
 
     CommandLine cmd;
     cmd.AddValue("nNodes", "Number of nodes in the mesh", nNodes);
     cmd.Parse(argc, argv);
-
-    // FIX 3: Removed Time::SetResolution(Time::NS) to follow modern ns-3 guidelines
 
     // 1. Create Nodes
     NodeContainer nodes;
@@ -50,7 +48,6 @@ int main(int argc, char *argv[])
             NodeContainer pair(nodes.Get(i), nodes.Get(j));
             NetDeviceContainer devices = p2p.Install(pair);
 
-            // Assign a unique subnet for every single link in the mesh
             std::ostringstream oss;
             oss << "10.1." << subnet++ << ".0";
             address.SetBase(oss.str().c_str(), "255.255.255.0");
@@ -59,24 +56,48 @@ int main(int argc, char *argv[])
     }
 
     // 5. Global Routing
-    // While a full mesh means every node is 1 hop away, populating 
-    // routing tables ensures nodes know which specific interface to use.
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-    // 6. Install Application (Example: Node 0 sends to the last Node)
+    // 6. Install Application (Node 0 sends to the last Node)
+    uint32_t sourceNode = 0;
     uint32_t destNode = nNodes - 1;
-    
-    // We get the IP address of the destination node 
-    // from the first physical interface it has.
-    Ptr<Ipv4> ipv4 = nodes.Get(destNode)->GetObject<Ipv4>();
-    Ipv4Address addr = ipv4->GetAddress(1, 0).GetLocal(); 
+    Ipv4Address addr;
+    bool found = false;
+
+    // FIX: Look up the destination IP matching the subnet shared with Node 0
+    Ptr<Ipv4> ipv4Source = nodes.Get(sourceNode)->GetObject<Ipv4>();
+    Ptr<Ipv4> ipv4Dest = nodes.Get(destNode)->GetObject<Ipv4>();
+
+    for (uint32_t i = 1; i < ipv4Source->GetNInterfaces() && !found; i++)
+    {
+        Ipv4Address srcIp = ipv4Source->GetAddress(i, 0).GetLocal();
+        Ipv4Mask srcMask = ipv4Source->GetAddress(i, 0).GetMask();
+
+        for (uint32_t j = 1; j < ipv4Dest->GetNInterfaces(); j++)
+        {
+            Ipv4Address destIp = ipv4Dest->GetAddress(j, 0).GetLocal();
+            // Check if both IPs belong to the same point-to-point network subnet
+            if (srcIp.CombineWith(srcMask) == destIp.CombineWith(srcMask))
+            {
+                addr = destIp;
+                found = true;
+                break;
+            }
+        }
+    }
+
+    // Fallback in case loop fails to find a match
+    if (!found)
+    {
+        addr = ipv4Dest->GetAddress(1, 0).GetLocal();
+    }
 
     UdpEchoClientHelper echoClient(addr, 9);
     echoClient.SetAttribute("MaxPackets", UintegerValue(5));
     echoClient.SetAttribute("Interval", TimeValue(Seconds(1.0)));
     echoClient.SetAttribute("PacketSize", UintegerValue(1024));
 
-    ApplicationContainer clientApp = echoClient.Install(nodes.Get(0));
+    ApplicationContainer clientApp = echoClient.Install(nodes.Get(sourceNode));
     clientApp.Start(Seconds(2.0));
     clientApp.Stop(Seconds(10.0));
 
