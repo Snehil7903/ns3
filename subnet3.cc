@@ -25,7 +25,6 @@ int main (int argc, char *argv[])
     nodes.Create(4);
 
     // 2. Configure CSMA (Models a shared bus cable)
-    // Make sure the object is lowercase 'csma' to match C++ case sensitivity
     CsmaHelper csma;
     csma.SetChannelAttribute("DataRate", StringValue("10Mbps"));
     csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560)));
@@ -71,16 +70,17 @@ int main (int argc, char *argv[])
     int y_pos = 30;
     for (uint32_t i = 0; i < nodes.GetN(); i++) 
     {
+        // Use *nodes.Get(i) to pass the Node reference instead of the Ptr
         anim.SetConstantPosition(nodes.Get(i), x_start + i * 20, y_pos);
         
         std::string desc = (i == 0) ? "Server" : "Client " + std::to_string(i);
-        anim.UpdateNodeDescription(nodes.Get(i), desc);
+        anim.UpdateNodeDescription(nodes.Get(i)->GetId(), desc); // Fixed: Added ->GetId()
 
         // Server is Red, Clients are Blue
         if (i == 0)
-            anim.UpdateNodeColor(nodes.Get(i), 255, 0, 0);
+            anim.UpdateNodeColor(nodes.Get(i)->GetId(), 255, 0, 0); // Fixed: Added ->GetId()
         else
-            anim.UpdateNodeColor(nodes.Get(i), 0, 0, 255);
+            anim.UpdateNodeColor(nodes.Get(i)->GetId(), 0, 0, 255); // Fixed: Added ->GetId()
     }
 
     // 9. Simulation Execution
