@@ -15,16 +15,17 @@ double CalculateHammingResidualError (double ber, uint32_t totalFrameSize)
 { 
     // Probability of 2 or more errors in a 7-bit block (Uncorrectable by Hamming) 
     // P(unfixable) = 1 - [P(0 errors) + P(1 error)] 
-    double p0 = pow (1.0 - ber, 7);
-    double p1 = 7.0 * ber * pow (1.0 - ber, 6);
+    double p0 = std::pow (1.0 - ber, 7);
+    double p1 = 7.0 * ber * std::pow (1.0 - ber, 6);
     double pBlockError = 1.0 - (p0 + p1);
 
-    // FIX: A packet with (totalFrameSize * 8) data bits requires 
-    // exactly this many 4-bit chunks, each expanding to a 7-bit physical block.
-    double numBlocks = ceil((totalFrameSize * 8.0) / 4.0);
+    // Calculate total data bits and map safely to 4-bit data blocks.
+    // (bits + 3) / 4 performs integer division ceiling safely without float precision issues.
+    uint32_t totalBits = totalFrameSize * 8;
+    uint32_t numBlocks = (totalBits + 3) / 4;
     
     // Probability that at least one block in the packet fails 
-    return 1.0 - pow (1.0 - pBlockError, numBlocks);
+    return 1.0 - std::pow (1.0 - pBlockError, static_cast<double>(numBlocks));
 } 
 
 int main (int argc, char *argv[]) 
