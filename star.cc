@@ -45,7 +45,6 @@ int main(int argc, char *argv[])
     p2p.SetDeviceAttribute("DataRate", StringValue("5Mbps"));
     p2p.SetChannelAttribute("Delay", StringValue("2ms"));
 
-    // FIX 1: Use a vector of containers to keep track of individual link subnets cleanly
     std::vector<Ipv4InterfaceContainer> linkInterfaces;
 
     // Connect each leaf to the hub
@@ -74,7 +73,6 @@ int main(int argc, char *argv[])
     // 5. Install UDP Echo Clients on Leaves
     for (uint32_t i = 0; i < nLeaf; i++)
     {
-        // FIX 2: Safely target the Hub's IP address (index 0 of that specific link pair)
         Ipv4Address hubAddress = linkInterfaces[i].GetAddress(0);
 
         UdpEchoClientHelper echoClient(hubAddress, 9);
@@ -92,6 +90,7 @@ int main(int argc, char *argv[])
 
     // Position Hub at (50, 50)
     anim.SetConstantPosition(hubNode.Get(0), 50.0, 50.0);
+    // FIXED: Changed to valid NetAnim function names
     anim.UpdateNodeDescription(hubNode.Get(0), "Hub");
     anim.UpdateNodeColor(hubNode.Get(0), 255, 0, 0); // Red
 
@@ -106,6 +105,7 @@ int main(int argc, char *argv[])
         double y = 50.0 + radius * std::sin(rad);
 
         anim.SetConstantPosition(leafNodes.Get(i), x, y);
+        // FIXED: Changed to valid NetAnim function names
         anim.UpdateNodeDescription(leafNodes.Get(i), "Leaf-" + std::to_string(i));
         anim.UpdateNodeColor(leafNodes.Get(i), 0, 0, 255); // Blue
     }
