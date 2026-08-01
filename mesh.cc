@@ -64,18 +64,21 @@ int main(int argc, char *argv[])
     Ipv4Address addr;
     bool found = false;
 
-    // FIX: Look up the destination IP matching the subnet shared with Node 0
+    // Look up the destination IP matching the subnet shared with Node 0
     Ptr<Ipv4> ipv4Source = nodes.Get(sourceNode)->GetObject<Ipv4>();
     Ptr<Ipv4> ipv4Dest = nodes.Get(destNode)->GetObject<Ipv4>();
 
     for (uint32_t i = 1; i < ipv4Source->GetNInterfaces() && !found; i++)
     {
-        Ipv4Address srcIp = ipv4Source->GetAddress(i, 0).GetLocal();
-        Ipv4Mask srcMask = ipv4Source->GetAddress(i, 0).GetMask();
+        Ipv4InterfaceAddress srcIfaceAddr = ipv4Source->GetAddress(i, 0);
+        Ipv4Address srcIp = srcIfaceAddr.GetLocal();
+        Ipv4Mask srcMask = srcIfaceAddr.GetMask();
 
         for (uint32_t j = 1; j < ipv4Dest->GetNInterfaces(); j++)
         {
-            Ipv4Address destIp = ipv4Dest->GetAddress(j, 0).GetLocal();
+            Ipv4InterfaceAddress destIfaceAddr = ipv4Dest->GetAddress(j, 0);
+            Ipv4Address destIp = destIfaceAddr.GetLocal();
+            
             // Check if both IPs belong to the same point-to-point network subnet
             if (srcIp.CombineWith(srcMask) == destIp.CombineWith(srcMask))
             {
@@ -86,8 +89,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    // Fallback in case loop fails to find a match
-    if (!found)
+    // Fallback in case loop fails to find a direct subnet match (uses any valid address on dest)
+    if (!found && ipv4Dest->GetNInterfaces() > 1)
     {
         addr = ipv4Dest->GetAddress(1, 0).GetLocal();
     }
