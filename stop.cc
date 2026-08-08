@@ -49,7 +49,6 @@ private:
 
   virtual void StopApplication(void) override
   {
-    // Cancel pending events before closing the socket to avoid segfaults
     if (m_timeoutEvt.IsRunning())
     {
       m_timeoutEvt.Cancel();
@@ -76,6 +75,7 @@ private:
 
       m_socket->Send(packet);
 
+      // FIX: Cancel any previously active timer before scheduling a new timeout event
       if (m_timeoutEvt.IsRunning())
       {
         m_timeoutEvt.Cancel(); 
@@ -88,7 +88,6 @@ private:
   {
     Ptr<Packet> packet;
     
-    // Drain the socket buffer fully
     while ((packet = socket->Recv()))
     {
       SeqTsHeader ackHeader;
@@ -96,15 +95,20 @@ private:
       
       if (ackHeader.GetSeq() == m_seq)
       {
-        m_timeoutEvt.Cancel();
+        // FIX: Safely stop the retransmission loop because the packet arrived successfully
+        if (m_timeoutEvt.IsRunning())
+        {
+          m_timeoutEvt.Cancel();
+        }
 
-        NS_LOG_UNCOND("Sender: Received ACK for Seq " << m_seq);
+        NS_LOG_UNCOND("Sender: Received ACK for Seq " << m_seq << " at " << Simulator::Now().GetSeconds() << "s");
 
         m_seq = 1 - m_seq; // Toggle sequence between 0 and 1
         m_packetsSent++;
 
         if (m_packetsSent < m_pktCount)
         {
+          // Proactively transition to the next packet frame immediately
           Simulator::ScheduleNow(&StopWaitSender::SendPacket, this);
         }
       }
@@ -186,7 +190,6 @@ private:
         NS_LOG_UNCOND("Receiver: Received DUPLICATE Packet Seq " << recvSeq << ". Discarding payload.");
       }
 
-      // ALWAYS send an ACK for the received sequence, even if it was a duplicate
       NS_LOG_UNCOND("Receiver: Sending ACK for Seq " << recvSeq << "...");
       Ptr<Packet> ack = Create<Packet>(10);
       SeqTsHeader ackHeader;
@@ -216,7 +219,6 @@ int main(int argc, char *argv[])
 
   NetDeviceContainer devices = p2p.Install(nodes);
 
-  // Error Model: drops packets to verify retransmission logic
   Ptr<RateErrorModel> em = CreateObject<RateErrorModel>();
   em->SetAttribute("ErrorRate", DoubleValue(0.15)); // 15% drop rate
   em->SetAttribute("ErrorUnit", StringValue("ERROR_UNIT_PACKET"));
