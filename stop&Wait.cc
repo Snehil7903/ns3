@@ -3,7 +3,6 @@
 #include "ns3/internet-module.h"
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
-// Use the precise header to guarantee modern ns-3 compatibility
 #include "ns3/netanim-module.h" 
 
 using namespace ns3;
@@ -12,7 +11,8 @@ NS_LOG_COMPONENT_DEFINE("StopAndWaitARQ");
 
 int main(int argc, char *argv[])
 {
-    CommandLine cmd;
+    // FIX: Pass __FILE__ into CommandLine to match modern ns-3 API standards
+    CommandLine cmd (__FILE__);
     cmd.Parse(argc, argv);
 
     // Enable logging to see the "Send" and "Receive" events clearly in the terminal
@@ -48,7 +48,6 @@ int main(int argc, char *argv[])
     UdpEchoClientHelper echoClient(interfaces.GetAddress(1), 9);
     echoClient.SetAttribute("MaxPackets", UintegerValue(5)); 
     
-    // FIX: Reduced interval to 150ms. 
     // This allows the node to process the 100ms RTT and send the next block sequentially.
     echoClient.SetAttribute("Interval", TimeValue(MilliSeconds(150))); 
     echoClient.SetAttribute("PacketSize", UintegerValue(1024));
