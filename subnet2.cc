@@ -37,10 +37,6 @@ int main (int argc, char *argv[])
     Ptr<Ipv4> routerIpv4 = router.Get(0)->GetObject<Ipv4>();
     routerIpv4->SetAttribute("IpForward", BooleanValue(true));
 
-    CsmaHelper csma;
-    csma.SetChannelAttribute("DataRate", StringValue("100Mbps"));
-    csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560)));
-
     Ipv4AddressHelper address;
     Ipv4Mask mask("255.255.255.240"); // Provides 14 usable IPs per subnet (.1 to .14)
 
@@ -49,28 +45,34 @@ int main (int argc, char *argv[])
 
     for (uint32_t i = 0; i < nSubnets; ++i)
     {
+        // Define a distinct CSMA helper per loop to create independent collision domains
+        CsmaHelper csma;
+        csma.SetChannelAttribute("DataRate", StringValue("100Mbps"));
+        csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560)));
+
         // Create hosts for this subnet
         subnetHosts[i].Create(nHosts);
         stack.Install(subnetHosts[i]);
 
-        // Create the CSMA bus for this specific subnet (Router + Hosts)
-        NodeContainer network;
-        network.Add(router.Get(0));
-        network.Add(subnetHosts[i]);
-
-        NetDeviceContainer devices = csma.Install(network);
+        // Separate container for devices on this specific subnet bus
+        NetDeviceContainer meshDevices;
+        
+        // Install CSMA net device on the router for this channel specifically
+        meshDevices.Add(csma.Install(router.Get(0)));
+        // Install CSMA net devices on the subnet hosts
+        meshDevices.Add(csma.Install(subnetHosts[i]));
 
         // Assign IP Addresses ensuring no overlap by striding by 16
         std::stringstream ss;
         ss << "192.168.72." << (i * 16);
         address.SetBase(Ipv4Address(ss.str().c_str()), mask);
-        interfaces[i] = address.Assign(devices);
+        interfaces[i] = address.Assign(meshDevices);
 
         // Positioning for Hosts in NetAnim (Vertical rows)
         Ptr<ListPositionAllocator> hostPos = CreateObject<ListPositionAllocator>();
         for (uint32_t j = 0; j < nHosts; ++j)
         {
-            hostPos->Add(Vector(150.0 + (j * 20.0), i * 30.0, 0.0));
+            hostPos->Add(Vector(150.0 + (j * 20.0), (i + 1) * 30.0, 0.0));
         }
         mobility.SetPositionAllocator(hostPos);
         mobility.Install(subnetHosts[i]);
