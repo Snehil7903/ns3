@@ -70,17 +70,17 @@ int main (int argc, char *argv[])
     int y_pos = 30;
     for (uint32_t i = 0; i < nodes.GetN(); i++) 
     {
-        // Use *nodes.Get(i) to pass the Node reference instead of the Ptr
+        // FIXED: Removed the asterisk (*). nodes.Get(i) already returns a Ptr<Node>
         anim.SetConstantPosition(nodes.Get(i), x_start + i * 20, y_pos);
         
         std::string desc = (i == 0) ? "Server" : "Client " + std::to_string(i);
-        anim.UpdateNodeDescription(nodes.Get(i)->GetId(), desc); // Fixed: Added ->GetId()
+        anim.UpdateNodeDescription(nodes.Get(i)->GetId(), desc); 
 
         // Server is Red, Clients are Blue
         if (i == 0)
-            anim.UpdateNodeColor(nodes.Get(i)->GetId(), 255, 0, 0); // Fixed: Added ->GetId()
+            anim.UpdateNodeColor(nodes.Get(i)->GetId(), 255, 0, 0); 
         else
-            anim.UpdateNodeColor(nodes.Get(i)->GetId(), 0, 0, 255); // Fixed: Added ->GetId()
+            anim.UpdateNodeColor(nodes.Get(i)->GetId(), 0, 0, 255); 
     }
 
     // 9. Simulation Execution
