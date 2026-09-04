@@ -75,7 +75,7 @@ private:
 
       m_socket->Send(packet);
 
-      // FIX: Cancel any previously active timer before scheduling a new timeout event
+      // Cancel any previously active timer before scheduling a new timeout event
       if (m_timeoutEvt.IsRunning())
       {
         m_timeoutEvt.Cancel(); 
@@ -91,11 +91,14 @@ private:
     while ((packet = socket->Recv()))
     {
       SeqTsHeader ackHeader;
-      packet->RemoveHeader(ackHeader);
+      if (packet->RemoveHeader(ackHeader) == 0) 
+      {
+        continue; // Skip malformed packets lacking the application header
+      }
       
       if (ackHeader.GetSeq() == m_seq)
       {
-        // FIX: Safely stop the retransmission loop because the packet arrived successfully
+        // Safely stop the retransmission loop because the packet arrived successfully
         if (m_timeoutEvt.IsRunning())
         {
           m_timeoutEvt.Cancel();
@@ -156,7 +159,7 @@ public:
 private:
   virtual void StartApplication(void) override
   {
-    m_socket->Listen();
+    // FIX: Removed m_socket->Listen() because it is not applicable for connectionless UDP sockets
     m_socket->SetRecvCallback(MakeCallback(&StopWaitReceiver::HandleRead, this));
   }
 
@@ -177,7 +180,10 @@ private:
     while ((packet = socket->RecvFrom(from)))
     {
       SeqTsHeader seqHeader;
-      packet->RemoveHeader(seqHeader);
+      if (packet->RemoveHeader(seqHeader) == 0)
+      {
+        continue;
+      }
       uint32_t recvSeq = seqHeader.GetSeq();
 
       if (recvSeq == m_expectedSeq)
