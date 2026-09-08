@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS Position Property Demo</title>
+  
+  <style>
+    /* Basic page setup */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f4f4f9;
+      height: 2000px; /* Extra height to allow scrolling for Fixed and Sticky tests */
+    }
+
+    h1, h2 {
+      color: #333;
+    }
+
+    /* Common styles for all demo boxes */
+    .box {
+      width: 150px;
+      height: 100px;
+      color: white;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    /* 1. STATIC (Default) */
+    .static-box {
+      position: static;
+      background-color: #4A90E2;
+      /* top, left, right, bottom have NO effect here */
+    }
+
+    /* 2. RELATIVE */
+    .relative-box {
+      position: relative;
+      background-color: #2ECC71;
+      top: 20px;   /* Moves down 20px from where it normally sits */
+      left: 30px;  /* Moves right 30px from where it normally sits */
+    }
+
+    /* Container to hold and restrict the Absolute box */
+    .container {
+      position: relative; /* Acts as the "anchor" for the absolute child */
+      width: 100%;
+      height: 200px;
+      background-color: #e0e0e0;
+      margin-top: 40px;
+      padding: 10px;
+      border: 2px dashed #999;
+    }
+
+    /* 3. ABSOLUTE */
+    .absolute-box {
+      position: absolute;
+      background-color: #E74C3C;
+      bottom: 10px; /* Snaps 10px away from the bottom of the container */
+      right: 10px;  /* Snaps 10px away from the right of the container */
+      margin-bottom: 0; /* Clear bottom margin */
+    }
+
+    /* 4. FIXED */
+    .fixed-box {
+      position: fixed;
+      background-color: #9B59B6;
+      bottom: 20px; /* Stays glued 20px from the viewport bottom */
+      left: 20px;   /* Stays glued 20px from the viewport left */
+      z-index: 1000; /* Ensures it stays on top of other elements */
+    }
+
+    /* 5. STICKY */
+    .sticky-box {
+      position: sticky;
+      background-color: #F1C40F;
+      top: 10px;    /* Scrolls normally until it hits 10px from the top, then sticks */
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>CSS Position Properties Demo</h1>
+  <p>Scroll down the page to see how the <strong>Fixed</strong> and <strong>Sticky</strong> boxes behave!</p>
+
+  <h2>1. Static Box</h2>
+  <div class="box static-box">Static</div>
+
+  <h2>2. Relative Box</h2>
+  <div class="box relative-box">Relative</div>
+
+  <h2>3. Absolute Box (Inside a relative container)</h2>
+  <div class="container">
+    <p>Container (Relative)</p>
+    <div class="box absolute-box">Absolute</div>
+  </div>
+
+  <h2>4. Sticky Box</h2>
+  <div class="box sticky-box">Sticky</div>
+
+  <h2>5. Fixed Box</h2>
+  <p>Look at the bottom-left corner of your browser screen. The purple box is pinned there permanently.</p>
+  <div class="box fixed-box">Fixed</div>
+
+</body>
+</html>
