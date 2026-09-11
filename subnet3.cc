@@ -5,6 +5,7 @@
 #include "ns3/csma-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/netanim-module.h"
+#include "ns3/mobility-module.h" // ADDED: Required for NetAnim to position nodes
 
 using namespace ns3;
 
@@ -61,6 +62,11 @@ int main (int argc, char *argv[])
         clientApp.Stop(Seconds(10.0));
     }
 
+    // ADDED: Initialize a stationary mobility model for NetAnim layout tracking
+    MobilityHelper mobility;
+    mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+    mobility.Install(nodes);
+
     // 8. NetAnim Visualization Section
     AnimationInterface anim("bus-topology.xml");
     anim.EnablePacketMetadata(true); // Allows viewing packet info in NetAnim
@@ -70,17 +76,17 @@ int main (int argc, char *argv[])
     int y_pos = 30;
     for (uint32_t i = 0; i < nodes.GetN(); i++) 
     {
-        // FIXED: Removed the asterisk (*). nodes.Get(i) already returns a Ptr<Node>
-        anim.SetConstantPosition(nodes.Get(i), x_start + i * 20, y_pos);
+        // FIXED: NetAnim needs positions applied cleanly over the nodes tracking system
+        anim.SetConstantPosition(nodes.Get(i), x_start + (i * 20), y_pos);
         
         std::string desc = (i == 0) ? "Server" : "Client " + std::to_string(i);
-        anim.UpdateNodeDescription(nodes.Get(i)->GetId(), desc); 
+        anim.UpdateNodeDescription(nodes.Get(i), desc); // FIXED: Passing Ptr<Node> directly is safer across ns-3 versions
 
         // Server is Red, Clients are Blue
         if (i == 0)
-            anim.UpdateNodeColor(nodes.Get(i)->GetId(), 255, 0, 0); 
+            anim.UpdateNodeColor(nodes.Get(i), 255, 0, 0); 
         else
-            anim.UpdateNodeColor(nodes.Get(i)->GetId(), 0, 0, 255); 
+            anim.UpdateNodeColor(nodes.Get(i), 0, 0, 255); 
     }
 
     // 9. Simulation Execution
