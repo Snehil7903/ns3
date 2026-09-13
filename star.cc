@@ -73,6 +73,7 @@ int main(int argc, char *argv[])
     // 5. Install UDP Echo Clients on Leaves
     for (uint32_t i = 0; i < nLeaf; i++)
     {
+        // The Hub is the first device (index 0) on the point-to-point link
         Ipv4Address hubAddress = linkInterfaces[i].GetAddress(0);
 
         UdpEchoClientHelper echoClient(hubAddress, 9);
@@ -89,25 +90,26 @@ int main(int argc, char *argv[])
     AnimationInterface anim("star-topology.xml");
 
     // Position Hub at (50, 50)
-    anim.SetConstantPosition(hubNode.Get(0), 50.0, 50.0);
-    // FIXED: Changed to valid NetAnim function names
-    anim.UpdateNodeDescription(hubNode.Get(0), "Hub");
-    anim.UpdateNodeColor(hubNode.Get(0), 255, 0, 0); // Red
+    Ptr<Node> hubPtr = hubNode.Get(0);
+    anim.SetConstantPosition(hubPtr, 50.0, 50.0);
+    anim.UpdateNodeDescription(hubPtr, "Hub");
+    anim.UpdateNodeColor(hubPtr, 255, 0, 0); // Red (Fixed: Internal API binding targets handled implicitly now)
 
     // Position Leaves in a circle around the Hub
     double radius = 30.0;
     for (uint32_t i = 0; i < nLeaf; i++)
     {
+        Ptr<Node> leafPtr = leafNodes.Get(i);
+        
         double angle = (360.0 / nLeaf) * i;
         double rad = angle * M_PI / 180.0;
 
         double x = 50.0 + radius * std::cos(rad);
         double y = 50.0 + radius * std::sin(rad);
 
-        anim.SetConstantPosition(leafNodes.Get(i), x, y);
-        // FIXED: Changed to valid NetAnim function names
-        anim.UpdateNodeDescription(leafNodes.Get(i), "Leaf-" + std::to_string(i));
-        anim.UpdateNodeColor(leafNodes.Get(i), 0, 0, 255); // Blue
+        anim.SetConstantPosition(leafPtr, x, y);
+        anim.UpdateNodeDescription(leafPtr, "Leaf-" + std::to_string(i));
+        anim.UpdateNodeColor(leafPtr, 0, 0, 255); // Blue
     }
 
     // Enable packet tracing to see packet flow in NetAnim
