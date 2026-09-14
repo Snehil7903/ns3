@@ -60,13 +60,14 @@ int main (int argc, char *argv[])
     {
         anim.SetConstantPosition(nodes.Get(i), x_start + i * 20, y_pos);
         
-        std::string desc = (i == 0) ? "Server" : "Client " + std::to_string(i);
+        // Fixed: Explicitly converted the literal to a std::string to ensure flawless concatenation
+        std::string desc = (i == 0) ? "Server" : std::string("Client ") + std::to_string(i);
         anim.UpdateNodeDescription(nodes.Get(i), desc);
 
         if (i == 0)
-            anim.UpdateNodeColor(nodes.Get(i), 255, 0, 0);
+            anim.UpdateNodeColor(nodes.Get(i), 255, 0, 0); // Red for Server
         else
-            anim.UpdateNodeColor(nodes.Get(i), 0, 0, 255);
+            anim.UpdateNodeColor(nodes.Get(i), 0, 0, 255); // Blue for Clients
     }
 
     Simulator::Stop(Seconds(11.0));
