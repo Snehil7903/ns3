@@ -9,19 +9,18 @@
 #include "ns3/netanim-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/mobility-module.h"
-#include "ns3/internet-apps-module.h"
 
 using namespace ns3;
 
 int main (int argc, char *argv[])
 {
-    // FIX 1: Safest way to enable forwarding globally before creating stacks
-    Config::SetDefault("ns3::Ipv4::IpForward", BooleanValue(true));
+    CommandLine cmd;
+    cmd.Parse(argc, argv);
 
     uint32_t nSubnets = 5;
     uint32_t nHosts = 10;
 
-    // 1. Create Nodes
+    // 1. Create Router Node
     NodeContainer router;
     router.Create(1);
 
@@ -33,9 +32,15 @@ int main (int argc, char *argv[])
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     mobility.Install(router);
 
+    // 3. Install Internet Stack on Router
     InternetStackHelper stack;
     stack.Install(router);
 
+    // Explicitly enable IPv4 Routing/Forwarding on the Router node
+    Ptr<Ipv4> ipv4Router = router.Get(0)->GetObject<Ipv4>();
+    ipv4Router->SetAttribute("IpForward", BooleanValue(true));
+
+    // 4. Setup CSMA Channel Configuration
     CsmaHelper csma;
     csma.SetChannelAttribute("DataRate", StringValue("100Mbps"));
     csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560)));
@@ -46,42 +51,45 @@ int main (int argc, char *argv[])
     std::vector<NodeContainer> subnetHosts(nSubnets);
     std::vector<Ipv4InterfaceContainer> interfaces(nSubnets);
 
+    // 5. Populate Subnets
     for (uint32_t i = 0; i < nSubnets; ++i)
     {
         subnetHosts[i].Create(nHosts);
         stack.Install(subnetHosts[i]);
 
+        // Topology: Link the router interface and all subnet hosts together on one CSMA bus
         NodeContainer network;
         network.Add(router.Get(0));
         network.Add(subnetHosts[i]);
 
-        // Install CSMA devices exactly once and store them
+        // Install CSMA devices
         NetDeviceContainer devices = csma.Install(network);
 
+        // Generate base subnet IPs safely
         std::stringstream ss;
         ss << "192.168.72." << (i * 16);
-        
-        // FIX 2: Store in a variable to prevent dangling pointer crashes
         std::string subnetStr = ss.str();
-        address.SetBase(subnetStr.c_str(), mask);
         
-        // Assign IPs to the stored devices
+        address.SetBase(subnetStr.c_str(), mask);
         interfaces[i] = address.Assign(devices); 
 
         // Positioning for Hosts
         Ptr<ListPositionAllocator> hostPos = CreateObject<ListPositionAllocator>();
         for (uint32_t j = 0; j < nHosts; ++j)
         {
-            hostPos->Add(Vector(150.0 + (j * 20.0), i * 30.0, 0.0));
+            hostPos->Add(Vector(150.0 + (j * 20.0), (i + 1) * 40.0, 0.0));
         }
         mobility.SetPositionAllocator(hostPos);
         mobility.Install(subnetHosts[i]);
     }
 
+    // 6. Build global routing paths across all subnets
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-    // ---- Ping Application ----
+    // 7. Setup Ping Application (Host 0 in Subnet 0 pings Host 0 in Subnet 4)
+    // index 0 of interface is the router interface on that subnet; index 1 is host 0.
     Ipv4Address targetIp = interfaces[4].GetAddress(1); 
+    
     PingHelper ping(targetIp);
     ping.SetAttribute("Verbose", BooleanValue(true));
 
@@ -89,10 +97,20 @@ int main (int argc, char *argv[])
     app.Start(Seconds(1.0));
     app.Stop(Seconds(10.0));
 
-    // ---- NetAnim ----
+    // 8. NetAnim Visualizer
     AnimationInterface anim("five_subnets.xml");
     anim.UpdateNodeDescription(router.Get(0), "MainRouter");
     anim.UpdateNodeColor(router.Get(0), 255, 0, 0);
+
+    // Set colors for the hosts to easily distinguish subnets visually
+    for (uint32_t i = 0; i < nSubnets; ++i)
+    {
+        for (uint32_t j = 0; j < nHosts; ++j)
+        {
+            anim.UpdateNodeDescription(subnetHosts[i].Get(j), "Host");
+            anim.UpdateNodeColor(subnetHosts[i].Get(j), 0, 0, 255 - (i * 40));
+        }
+    }
 
     Simulator::Stop(Seconds(11.0));
     Simulator::Run();
