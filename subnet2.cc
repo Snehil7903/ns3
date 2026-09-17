@@ -10,6 +10,7 @@
 #include "ns3/applications-module.h"
 #include "ns3/mobility-module.h"
 #include "ns3/internet-apps-module.h"
+#include "ns3/v4ping-helper.h" // Added missing header for ping
 
 using namespace ns3;
 
@@ -86,7 +87,8 @@ int main (int argc, char *argv[])
     // index 0 of interface is the Router, so index 1 is the first host.
     Ipv4Address targetIp = interfaces[4].GetAddress(1); 
     
-    PingHelper ping(targetIp);
+    // Fixed: Changed PingHelper to V4PingHelper
+    V4PingHelper ping(targetIp);
     ping.SetAttribute("Verbose", BooleanValue(true));
 
     // Install on Subnet 1 (index 0), Host 0
