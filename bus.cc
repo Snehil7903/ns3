@@ -1,4 +1,5 @@
 #include <string>
+#include <string_view>
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
@@ -25,49 +26,59 @@ int main (int argc, char *argv[])
     csma.SetChannelAttribute("DataRate", StringValue("10Mbps"));
     csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560)));
 
-    NetDeviceContainer devices = csma.Install(nodes);
+    auto devices = csma.Install(nodes);
 
     InternetStackHelper stack;
     stack.Install(nodes);
 
     Ipv4AddressHelper address;
     address.SetBase("10.1.1.0", "255.255.255.0");
-    Ipv4InterfaceContainer interfaces = address.Assign(devices);
+    auto interfaces = address.Assign(devices);
 
+    // Modern ns-3 apps can use smart pointers or cleanly grouped application helpers
     UdpEchoServerHelper echoServer(9);
-    ApplicationContainer serverApp = echoServer.Install(nodes.Get(0));
+    auto serverApp = echoServer.Install(nodes.Get(0));
     serverApp.Start(Seconds(1.0));
     serverApp.Stop(Seconds(10.0));
 
-    for (uint32_t i = 1; i < nodes.GetN(); i++) 
+    // Modern C++: Used std::size_t over legacy raw uint32_t for container sizing
+    for (std::size_t i = 1, total_nodes = nodes.GetN(); i < total_nodes; ++i) 
     {
         UdpEchoClientHelper echoClient(interfaces.GetAddress(0), 9);
         echoClient.SetAttribute("MaxPackets", UintegerValue(1));
         echoClient.SetAttribute("Interval", TimeValue(Seconds(1.0)));
         echoClient.SetAttribute("PacketSize", UintegerValue(1024));
 
-        ApplicationContainer clientApp = echoClient.Install(nodes.Get(i));
-        clientApp.Start(Seconds(2.0 + i));
+        auto clientApp = echoClient.Install(nodes.Get(i));
+        clientApp.Start(Seconds(2.0 + static_cast<double>(i)));
         clientApp.Stop(Seconds(10.0));
     }
 
     AnimationInterface anim("bus-topology.xml");
     anim.EnablePacketMetadata(true);
 
-    int x_start = 10;
-    int y_pos = 30;
-    for (uint32_t i = 0; i < nodes.GetN(); i++) 
-    {
-        anim.SetConstantPosition(nodes.Get(i), x_start + i * 20, y_pos);
-        
-        // Fixed: Explicitly converted the literal to a std::string to ensure flawless concatenation
-        std::string desc = (i == 0) ? "Server" : std::string("Client ") + std::to_string(i);
-        anim.UpdateNodeDescription(nodes.Get(i), desc);
+    constexpr double x_start = 10.0;
+    constexpr double y_pos = 30.0;
+    constexpr double node_spacing = 20.0;
 
-        if (i == 0)
-            anim.UpdateNodeColor(nodes.Get(i), 255, 0, 0); // Red for Server
-        else
-            anim.UpdateNodeColor(nodes.Get(i), 0, 0, 255); // Blue for Clients
+    for (std::size_t i = 0, total_nodes = nodes.GetN(); i < total_nodes; ++i) 
+    {
+        auto node = nodes.Get(i);
+        
+        anim.SetConstantPosition(node, x_start + static_cast<double>(i) * node_spacing, y_pos);
+        
+        // Modern C++: Optimized string building using cleaner ternary conditions
+        std::string desc = (i == 0) ? "Server" : "Client " + std::to_string(i);
+        anim.UpdateNodeDescription(node, desc);
+
+        if (i == 0) 
+        {
+            anim.UpdateNodeColor(node, 255, 0, 0); // Red for Server
+        } 
+        else 
+        {
+            anim.UpdateNodeColor(node, 0, 0, 255); // Blue for Clients
+        }
     }
 
     Simulator::Stop(Seconds(11.0));
