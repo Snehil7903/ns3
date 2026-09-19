@@ -1,7 +1,6 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <sstream>
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
@@ -12,13 +11,13 @@
 
 using namespace ns3;
 
-int main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {
-    CommandLine cmd;
+    CommandLine cmd(__FILE__);
     cmd.Parse(argc, argv);
 
-    uint32_t nSubnets = 5;
-    uint32_t nHosts = 10;
+    const uint32_t nSubnets = 5;
+    const uint32_t nHosts = 10;
 
     // 1. Create Router Node
     NodeContainer router;
@@ -26,7 +25,7 @@ int main (int argc, char *argv[])
 
     // 2. Setup Router Mobility
     MobilityHelper mobility;
-    Ptr<ListPositionAllocator> routerPos = CreateObject<ListPositionAllocator>();
+    auto routerPos = CreateObject<ListPositionAllocator>();
     routerPos->Add(Vector(50.0, 75.0, 0.0)); 
     mobility.SetPositionAllocator(routerPos);
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
@@ -46,7 +45,7 @@ int main (int argc, char *argv[])
     csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560)));
 
     Ipv4AddressHelper address;
-    Ipv4Mask mask("255.255.255.240");
+    Ipv4Mask mask("255.255.255.240"); // /28 subnet mask allows up to 14 hosts per subnet
 
     std::vector<NodeContainer> subnetHosts(nSubnets);
     std::vector<Ipv4InterfaceContainer> interfaces(nSubnets);
@@ -65,16 +64,14 @@ int main (int argc, char *argv[])
         // Install CSMA devices
         NetDeviceContainer devices = csma.Install(network);
 
-        // Generate base subnet IPs safely
-        std::stringstream ss;
-        ss << "192.168.72." << (i * 16);
-        std::string subnetStr = ss.str();
+        // Generate base subnet IPs safely using standard string concatenation
+        std::string subnetStr = "192.168.72." + std::to_string(i * 16);
         
         address.SetBase(subnetStr.c_str(), mask);
         interfaces[i] = address.Assign(devices); 
 
         // Positioning for Hosts
-        Ptr<ListPositionAllocator> hostPos = CreateObject<ListPositionAllocator>();
+        auto hostPos = CreateObject<ListPositionAllocator>();
         for (uint32_t j = 0; j < nHosts; ++j)
         {
             hostPos->Add(Vector(150.0 + (j * 20.0), (i + 1) * 40.0, 0.0));
@@ -91,7 +88,8 @@ int main (int argc, char *argv[])
     Ipv4Address targetIp = interfaces[4].GetAddress(1); 
     
     PingHelper ping(targetIp);
-    ping.SetAttribute("Verbose", BooleanValue(true));
+    // Modern ns-3 uses VerboseMode Enum rather than a plain boolean for the Ping application
+    ping.SetAttribute("VerboseMode", EnumValue(Ping::VerboseMode::VERBOSE));
 
     ApplicationContainer app = ping.Install(subnetHosts[0].Get(0));
     app.Start(Seconds(1.0));
