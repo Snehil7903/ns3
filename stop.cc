@@ -10,14 +10,13 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("StopAndWaitSequenceExample");
 
-/* =======================
+/* ========================================================================
    Sender Application
-   ======================= */
-
+   ======================================================================== */
 class StopWaitSender : public Application
 {
 public:
-  static TypeId GetTypeId(void)
+  static TypeId GetTypeId()
   {
     static TypeId tid = TypeId("StopWaitSender")
                             .SetParent<Application>()
@@ -26,11 +25,7 @@ public:
     return tid;
   }
 
-  StopWaitSender()
-      : m_socket(0),
-        m_seq(0),
-        m_pktCount(10),
-        m_packetsSent(0) {}
+  StopWaitSender() = default;
 
   void Setup(Ptr<Socket> socket, Address address, Time timeout)
   {
@@ -40,14 +35,17 @@ public:
   }
 
 private:
-  virtual void StartApplication(void) override
+  void StartApplication() override
   {
-    m_socket->Connect(m_peer);
-    m_socket->SetRecvCallback(MakeCallback(&StopWaitSender::ReceiveAck, this));
+    if (m_socket)
+    {
+      m_socket->Connect(m_peer);
+      m_socket->SetRecvCallback(MakeCallback(&StopWaitSender::ReceiveAck, this));
+    }
     SendPacket();
   }
 
-  virtual void StopApplication(void) override
+  void StopApplication() override
   {
     if (m_timeoutEvt.IsRunning())
     {
@@ -72,10 +70,8 @@ private:
       packet->AddHeader(seqHeader);
 
       NS_LOG_UNCOND("Sender: Sending Pkt Seq " << m_seq << " at " << Simulator::Now().GetSeconds() << "s");
-
       m_socket->Send(packet);
 
-      // Cancel any previously active timer before scheduling a new timeout event
       if (m_timeoutEvt.IsRunning())
       {
         m_timeoutEvt.Cancel(); 
@@ -87,18 +83,16 @@ private:
   void ReceiveAck(Ptr<Socket> socket)
   {
     Ptr<Packet> packet;
-    
     while ((packet = socket->Recv()))
     {
       SeqTsHeader ackHeader;
       if (packet->RemoveHeader(ackHeader) == 0) 
       {
-        continue; // Skip malformed packets lacking the application header
+        continue; 
       }
       
       if (ackHeader.GetSeq() == m_seq)
       {
-        // Safely stop the retransmission loop because the packet arrived successfully
         if (m_timeoutEvt.IsRunning())
         {
           m_timeoutEvt.Cancel();
@@ -106,12 +100,11 @@ private:
 
         NS_LOG_UNCOND("Sender: Received ACK for Seq " << m_seq << " at " << Simulator::Now().GetSeconds() << "s");
 
-        m_seq = 1 - m_seq; // Toggle sequence between 0 and 1
+        m_seq = 1 - m_seq; 
         m_packetsSent++;
 
         if (m_packetsSent < m_pktCount)
         {
-          // Proactively transition to the next packet frame immediately
           Simulator::ScheduleNow(&StopWaitSender::SendPacket, this);
         }
       }
@@ -122,23 +115,22 @@ private:
     }
   }
 
-  Ptr<Socket> m_socket;
+  Ptr<Socket> m_socket{nullptr};
   Address m_peer;
-  uint32_t m_seq; 
-  uint32_t m_pktCount;
-  uint32_t m_packetsSent;
-  Time m_timeout;
+  uint32_t m_seq{0}; 
+  uint32_t m_pktCount{10};
+  uint32_t m_packetsSent{0};
+  Time m_timeout{Seconds(1.0)};
   EventId m_timeoutEvt;
 };
 
-/* =======================
+/* ========================================================================
    Receiver Application
-   ======================= */
-
+   ======================================================================== */
 class StopWaitReceiver : public Application
 {
 public:
-  static TypeId GetTypeId(void)
+  static TypeId GetTypeId()
   {
     static TypeId tid = TypeId("StopWaitReceiver")
                             .SetParent<Application>()
@@ -147,9 +139,7 @@ public:
     return tid;
   }
 
-  StopWaitReceiver()
-      : m_socket(0),
-        m_expectedSeq(0) {}
+  StopWaitReceiver() = default;
 
   void Setup(Ptr<Socket> socket)
   {
@@ -157,13 +147,15 @@ public:
   }
 
 private:
-  virtual void StartApplication(void) override
+  void StartApplication() override
   {
-    // FIX: Removed m_socket->Listen() because it is not applicable for connectionless UDP sockets
-    m_socket->SetRecvCallback(MakeCallback(&StopWaitReceiver::HandleRead, this));
+    if (m_socket)
+    {
+      m_socket->SetRecvCallback(MakeCallback(&StopWaitReceiver::HandleRead, this));
+    }
   }
 
-  virtual void StopApplication(void) override
+  void StopApplication() override
   {
     if (m_socket)
     {
@@ -189,7 +181,7 @@ private:
       if (recvSeq == m_expectedSeq)
       {
         NS_LOG_UNCOND("Receiver: Received expected Packet Seq " << recvSeq << ".");
-        m_expectedSeq = 1 - m_expectedSeq; // Toggle expected sequence
+        m_expectedSeq = 1 - m_expectedSeq; 
       }
       else
       {
@@ -206,16 +198,18 @@ private:
     }
   }
 
-  Ptr<Socket> m_socket;
-  uint32_t m_expectedSeq; 
+  Ptr<Socket> m_socket{nullptr};
+  uint32_t m_expectedSeq{0}; 
 };
 
-/* =======================
-            Main
-   ======================= */
-
+/* ========================================================================
+   Main Execution
+   ======================================================================== */
 int main(int argc, char *argv[])
 {
+  CommandLine cmd;
+  cmd.Parse(argc, argv);
+
   NodeContainer nodes;
   nodes.Create(2);
 
@@ -225,8 +219,8 @@ int main(int argc, char *argv[])
 
   NetDeviceContainer devices = p2p.Install(nodes);
 
-  Ptr<RateErrorModel> em = CreateObject<RateErrorModel>();
-  em->SetAttribute("ErrorRate", DoubleValue(0.15)); // 15% drop rate
+  auto em = CreateObject<RateErrorModel>();
+  em->SetAttribute("ErrorRate", DoubleValue(0.15)); 
   em->SetAttribute("ErrorUnit", StringValue("ERROR_UNIT_PACKET"));
   devices.Get(1)->SetAttribute("ReceiveErrorModel", PointerValue(em));
 
@@ -237,40 +231,38 @@ int main(int argc, char *argv[])
   address.SetBase("10.1.1.0", "255.255.255.0");
   Ipv4InterfaceContainer interfaces = address.Assign(devices);
 
-  uint16_t port = 8080;
+  constexpr uint16_t port = 8080;
 
-  /* Receiver Configuration */
+  // Setup Receiver
   Ptr<Socket> recvSocket = Socket::CreateSocket(nodes.Get(1), UdpSocketFactory::GetTypeId());
-  InetSocketAddress local = InetSocketAddress(Ipv4Address::GetAny(), port);
-  recvSocket->Bind(local);
+  recvSocket->Bind(InetSocketAddress(Ipv4Address::GetAny(), port));
 
-  Ptr<StopWaitReceiver> receiver = CreateObject<StopWaitReceiver>();
+  auto receiver = CreateObject<StopWaitReceiver>();
   receiver->Setup(recvSocket);
   nodes.Get(1)->AddApplication(receiver);
   receiver->SetStartTime(Seconds(0.0));
   receiver->SetStopTime(Seconds(20.0));
 
-  /* Sender Configuration */
+  // Setup Sender
   Ptr<Socket> sendSocket = Socket::CreateSocket(nodes.Get(0), UdpSocketFactory::GetTypeId());
 
-  Ptr<StopWaitSender> sender = CreateObject<StopWaitSender>();
+  auto sender = CreateObject<StopWaitSender>();
   sender->Setup(sendSocket, InetSocketAddress(interfaces.GetAddress(1), port), Seconds(1.0));
-  
   nodes.Get(0)->AddApplication(sender);
   sender->SetStartTime(Seconds(1.0));
   sender->SetStopTime(Seconds(20.0));
 
-  /* NetAnim Configuration */
+  // Visualizer / NetAnim Output Configuration
   AnimationInterface anim("stopwait.xml");
-  anim.SetConstantPosition(nodes.Get(0), 10, 20);
-  anim.SetConstantPosition(nodes.Get(1), 50, 20);
+  anim.SetConstantPosition(nodes.Get(0), 10.0, 20.0);
+  anim.SetConstantPosition(nodes.Get(1), 50.0, 20.0);
   
   anim.UpdateNodeDescription(nodes.Get(0), "Sender");
   anim.UpdateNodeDescription(nodes.Get(1), "Receiver");
-  
   anim.EnablePacketMetadata(true);
 
   Simulator::Run();
   Simulator::Destroy();
+  
   return 0;
 }
