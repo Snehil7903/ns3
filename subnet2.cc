@@ -1,7 +1,6 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <sstream>
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
@@ -10,14 +9,15 @@
 #include "ns3/applications-module.h"
 #include "ns3/mobility-module.h"
 #include "ns3/internet-apps-module.h"
-#include "ns3/v4ping-helper.h" // Added missing header for ping
+#include "ns3/v4ping-helper.h" 
 
 using namespace ns3;
 
 int main (int argc, char *argv[])
 {
-    uint32_t nSubnets = 5;
-    uint32_t nHosts = 10;
+    // Configuration constants
+    const uint32_t nSubnets = 5;
+    const uint32_t nHosts = 10;
 
     // 1. Create Router
     NodeContainer router;
@@ -25,21 +25,22 @@ int main (int argc, char *argv[])
 
     // 2. Setup Mobility for Router (Center point)
     MobilityHelper mobility;
-    Ptr<ListPositionAllocator> routerPos = CreateObject<ListPositionAllocator>();
+    auto routerPos = CreateObject<ListPositionAllocator>();
     routerPos->Add(Vector(50.0, 75.0, 0.0)); 
     mobility.SetPositionAllocator(routerPos);
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     mobility.Install(router);
 
+    // Install Internet Stack on Router
     InternetStackHelper stack;
     stack.Install(router);
 
     // Explicitly enable IP forwarding on the router so it can route between subnets
-    Ptr<Ipv4> routerIpv4 = router.Get(0)->GetObject<Ipv4>();
+    auto routerIpv4 = router.Get(0)->GetObject<Ipv4>();
     routerIpv4->SetAttribute("IpForward", BooleanValue(true));
 
     Ipv4AddressHelper address;
-    Ipv4Mask mask("255.255.255.240"); // Provides 14 usable IPs per subnet (.1 to .14)
+    const Ipv4Mask mask("255.255.255.240"); // Provides 14 usable IPs per subnet (.1 to .14)
 
     std::vector<NodeContainer> subnetHosts(nSubnets);
     std::vector<Ipv4InterfaceContainer> interfaces(nSubnets);
@@ -58,19 +59,17 @@ int main (int argc, char *argv[])
         // Separate container for devices on this specific subnet bus
         NetDeviceContainer meshDevices;
         
-        // Install CSMA net device on the router for this channel specifically
+        // Install CSMA net device on the router and the subnet hosts for this channel specifically
         meshDevices.Add(csma.Install(router.Get(0)));
-        // Install CSMA net devices on the subnet hosts
         meshDevices.Add(csma.Install(subnetHosts[i]));
 
-        // Assign IP Addresses ensuring no overlap by striding by 16
-        std::stringstream ss;
-        ss << "192.168.72." << (i * 16);
-        address.SetBase(Ipv4Address(ss.str().c_str()), mask);
+        // Assign IP Addresses ensuring no overlap by striding by 16 using C++ string creation
+        std::string subnetIp = "192.168.72." + std::to_string(i * 16);
+        address.SetBase(Ipv4Address(subnetIp.c_str()), mask);
         interfaces[i] = address.Assign(meshDevices);
 
         // Positioning for Hosts in NetAnim (Vertical rows)
-        Ptr<ListPositionAllocator> hostPos = CreateObject<ListPositionAllocator>();
+        auto hostPos = CreateObject<ListPositionAllocator>();
         for (uint32_t j = 0; j < nHosts; ++j)
         {
             hostPos->Add(Vector(150.0 + (j * 20.0), (i + 1) * 30.0, 0.0));
@@ -84,10 +83,9 @@ int main (int argc, char *argv[])
 
     // ---- Ping Application ----
     // Target: Subnet 5 (index 4), Host 0. 
-    // index 0 of interface is the Router, so index 1 is the first host.
+    // Index 0 of interface is the Router, so index 1 is the first host.
     Ipv4Address targetIp = interfaces[4].GetAddress(1); 
     
-    // Fixed: Changed PingHelper to V4PingHelper
     V4PingHelper ping(targetIp);
     ping.SetAttribute("Verbose", BooleanValue(true));
 
@@ -101,6 +99,7 @@ int main (int argc, char *argv[])
     anim.UpdateNodeDescription(router.Get(0), "MainRouter");
     anim.UpdateNodeColor(router.Get(0), 255, 0, 0); // Red router
 
+    // Set duration and run the simulation
     Simulator::Stop(Seconds(11.0));
     Simulator::Run();
     Simulator::Destroy();
