@@ -1,0 +1,515 @@
+%{ 
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <string.h> 
+ 
+#define MAX 100 
+char G1_NT[] = {'E','X','T','Y','F'}; 
+char G1_T[]  = {'(',')','+','*','i','$'}; 
+ 
+char G1_TABLE[5][6][20] = 
+{ 
+    /*        (       )       +       *       i       $    */ 
+    /* E */ {"TX",   "",      "",     "",     "TX",   ""}, 
+    /* X */ {"",     "#",     "+TX",  "",     "",     "#"}, 
+    /* T */ {"FY",   "",      "",     "",     "FY",   ""}, 
+    /* Y */ {"",     "#",     "#",    "*FY",  "",     "#"}, 
+    /* F */ {"(E)",  "",      "",     "",     "i",    ""} 
+}; 
+ 
+ 
+char G2_NT[] = {'S','A','X','B','C'}; 
+char G2_T[]  = {'a','d','b','f','g','$'}; 
+ 
+char G2_TABLE[5][6][20] = 
+{ 
+    /*        a       d       b       f       g       $    */ 
+    /* S */ {"A",    "",      "",     "",     "",     ""}, 
+    /* A */ {"aBX",  "",      "",     "",     "",     ""}, 
+    /* X */ {"",     "dX",    "",     "",     "",     "#"}, 
+    /* B */ {"",     "",      "BC",   "f",    "",     ""}, 
+    /* C */ {"",     "",      "",     "",     "g",    ""} 
+}; 
+int getColumn(char c, char terminals[], int count) 
+{ 
+    int i; 
+ 
+    for(i = 0; i < count; i++) 
+    { 
+        if(terminals[i] == c) 
+            return i; 
+    } 
+ 
+    return -1; 
+} 
+ 
+ 
+int getRow(char c, char nonterminals[], int count) 
+{ 
+    int i; 
+ 
+    for(i = 0; i < count; i++) 
+    { 
+        if(nonterminals[i] == c) 
+            return i; 
+    } 
+ 
+    return -1; 
+} 
+void firstFollowG1() 
+{ 
+    printf("\n========================================\n"); 
+    printf("       GRAMMAR 1 - FIRST & FOLLOW\n"); 
+    printf("========================================\n"); 
+ 
+    printf("\nGrammar after removing left recursion:\n"); 
+ 
+    printf("E -> TX\n"); 
+    printf("X -> +TX | #\n"); 
+    printf("T -> FY\n"); 
+    printf("Y -> *FY | #\n"); 
+    printf("F -> (E) | i\n"); 
+ 
+    printf("\nFIRST sets:\n"); 
+ 
+    printf("FIRST(E) = { (, i }\n"); 
+    printf("FIRST(X) = { +, # }\n"); 
+    printf("FIRST(T) = { (, i }\n"); 
+    printf("FIRST(Y) = { *, # }\n"); 
+    printf("FIRST(F) = { (, i }\n"); 
+ 
+    printf("\nFOLLOW sets:\n"); 
+ 
+    printf("FOLLOW(E) = { ), $ }\n"); 
+    printf("FOLLOW(X) = { ), $ }\n"); 
+    printf("FOLLOW(T) = { +, ), $ }\n"); 
+    printf("FOLLOW(Y) = { +, ), $ }\n"); 
+    printf("FOLLOW(F) = { *, +, ), $ }\n"); 
+} 
+void firstFollowG2() 
+{ 
+    printf("\n========================================\n"); 
+    printf("       GRAMMAR 2 - FIRST & FOLLOW\n"); 
+    printf("========================================\n"); 
+ 
+    printf("\nGrammar after removing left recursion:\n"); 
+ 
+    printf("S -> A\n"); 
+    printf("A -> aBX\n"); 
+    printf("X -> dX | #\n"); 
+    printf("B -> bBC | f\n"); 
+    printf("C -> g\n"); 
+ 
+    printf("\nFIRST sets:\n"); 
+ 
+    printf("FIRST(S) = { a }\n"); 
+    printf("FIRST(A) = { a }\n"); 
+    printf("FIRST(X) = { d, # }\n"); 
+    printf("FIRST(B) = { b, f }\n"); 
+    printf("FIRST(C) = { g }\n"); 
+ 
+    printf("\nFOLLOW sets:\n"); 
+ 
+    printf("FOLLOW(S) = { $ }\n"); 
+    printf("FOLLOW(A) = { $ }\n"); 
+    printf("FOLLOW(X) = { $ }\n"); 
+    printf("FOLLOW(B) = { g }\n"); 
+    printf("FOLLOW(C) = { g }\n"); 
+} 
+void printTableG1() 
+{ 
+    int i, j; 
+ 
+    printf("\n========================================\n"); 
+    printf("     GRAMMAR 1 PREDICTIVE TABLE\n"); 
+    printf("========================================\n\n"); 
+ 
+    printf("%-8s", ""); 
+ 
+    for(i = 0; i < 6; i++) 
+        printf("%-12c", G1_T[i]); 
+ 
+    printf("\n"); 
+ 
+    printf("----------------------------------------------------------\n"); 
+ 
+    for(i = 0; i < 5; i++) 
+    { 
+        printf("%-8c", G1_NT[i]); 
+ 
+        for(j = 0; j < 6; j++) 
+        { 
+            if(strlen(G1_TABLE[i][j]) == 0) 
+                printf("%-12s", "-"); 
+            else 
+                printf("%-12s", G1_TABLE[i][j]); 
+        } 
+ 
+        printf("\n"); 
+    } 
+} 
+void printTableG2() 
+{ 
+    int i, j; 
+ 
+    printf("\n========================================\n"); 
+    printf("     GRAMMAR 2 PREDICTIVE TABLE\n"); 
+    printf("========================================\n\n"); 
+ 
+    printf("%-8s", ""); 
+ 
+    for(i = 0; i < 6; i++) 
+        printf("%-12c", G2_T[i]); 
+ 
+    printf("\n"); 
+ 
+    printf("----------------------------------------------------------\n"); 
+ 
+    for(i = 0; i < 5; i++) 
+    { 
+        printf("%-8c", G2_NT[i]); 
+ 
+        for(j = 0; j < 6; j++) 
+        { 
+            if(strlen(G2_TABLE[i][j]) == 0) 
+                printf("%-12s", "-"); 
+            else 
+                printf("%-12s", G2_TABLE[i][j]); 
+        } 
+ 
+        printf("\n"); 
+    } 
+} 
+void printStack(char stack[], int top) 
+{ 
+    int i; 
+ 
+    for(i = 0; i < top; i++) 
+        printf("%c", stack[i]); 
+} 
+int parseG1(char input[]) 
+{ 
+    char stack[MAX]; 
+ 
+    int top = 0; 
+    int ip = 0; 
+ 
+    stack[top++] = '$'; 
+    stack[top++] = 'E'; 
+ 
+    printf("\n========================================\n"); 
+    printf("          PARSING GRAMMAR 1\n"); 
+    printf("========================================\n\n"); 
+ 
+    printf("%-20s %-20s %-25s\n", 
+           "STACK", 
+           "INPUT", 
+           "ACTION"); 
+ 
+    printf("-----------------------------------------------------------------\n"); 
+ 
+    while(top > 0) 
+    { 
+        char X = stack[top - 1]; 
+        char a = input[ip]; 
+ 
+        /* Accept */ 
+        if(X == '$' && a == '$') 
+        { 
+            printf("%-20s %-20s %-25s\n", 
+                   "$", 
+                   "$", 
+                   "ACCEPT"); 
+ 
+            return 1; 
+        } 
+        if(getColumn(X, G1_T, 6) != -1) 
+        { 
+            if(X == a) 
+            { 
+                top--; 
+                ip++; 
+ 
+                printf("%-20s %-20s %-25s\n", 
+                       stack, 
+                       input + ip, 
+                       "Match"); 
+            } 
+            else 
+            { 
+                printf("\nERROR: Expected '%c' but found '%c'\n", 
+                       X, a); 
+ 
+                return 0; 
+            } 
+        } 
+        else 
+        { 
+            int row = getRow(X, G1_NT, 5); 
+            int col = getColumn(a, G1_T, 6); 
+ 
+            if(row == -1 || col == -1) 
+            { 
+                printf("\nERROR: Invalid symbol '%c'\n", a); 
+                return 0; 
+            } 
+ 
+            if(strlen(G1_TABLE[row][col]) == 0) 
+            { 
+                printf("\nERROR: No production for (%c, %c)\n", 
+                       X, a); 
+ 
+                return 0; 
+            } 
+ 
+            char production[20]; 
+ 
+            strcpy(production, G1_TABLE[row][col]); 
+ 
+            top--; 
+ 
+            /* Epsilon production */ 
+            if(production[0] == '#') 
+            { 
+                printf("%-20s %-20s %-25s\n", 
+                       stack, 
+                       input + ip, 
+                       "Apply epsilon"); 
+            } 
+            else 
+            { 
+                int len = strlen(production); 
+                int i; 
+ 
+                for(i = len - 1; i >= 0; i--) 
+                    stack[top++] = production[i]; 
+ 
+                printf("%-20s %-20s %c -> %-20s\n", 
+                       stack, 
+                       input + ip, 
+                       X, 
+                       production); 
+            } 
+        } 
+    } 
+ 
+    return 0; 
+} 
+int parseG2(char input[]) 
+{ 
+    char stack[MAX]; 
+ 
+    int top = 0; 
+    int ip = 0; 
+ 
+    stack[top++] = '$'; 
+    stack[top++] = 'S'; 
+ 
+    printf("\n========================================\n"); 
+    printf("          PARSING GRAMMAR 2\n"); 
+    printf("========================================\n\n"); 
+ 
+    printf("%-20s %-20s %-25s\n", 
+           "STACK", 
+           "INPUT", 
+           "ACTION"); 
+ 
+    printf("-----------------------------------------------------------------\n"); 
+ 
+    while(top > 0) 
+    { 
+        char X = stack[top - 1]; 
+        char a = input[ip]; 
+ 
+        /* Accept */ 
+        if(X == '$' && a == '$') 
+        { 
+            printf("%-20s %-20s %-25s\n", 
+                   "$", 
+                   "$", 
+                   "ACCEPT"); 
+ 
+            return 1; 
+        } 
+ 
+        /* Terminal */ 
+        if(getColumn(X, G2_T, 6) != -1) 
+        { 
+            if(X == a) 
+            { 
+                top--; 
+                ip++; 
+ 
+                printf("%-20s %-20s %-25s\n", 
+                       stack, 
+                       input + ip, 
+                       "Match"); 
+            } 
+            else 
+            { 
+                printf("\nERROR: Expected '%c' but found '%c'\n", 
+                       X, a); 
+ 
+                return 0; 
+            } 
+        } 
+ 
+        /* Non-terminal */ 
+        else 
+        { 
+            int row = getRow(X, G2_NT, 5); 
+            int col = getColumn(a, G2_T, 6); 
+ 
+            if(row == -1 || col == -1) 
+            { 
+                printf("\nERROR: Invalid symbol '%c'\n", a); 
+                return 0; 
+            } 
+ 
+            if(strlen(G2_TABLE[row][col]) == 0) 
+            { 
+                printf("\nERROR: No production for (%c, %c)\n", 
+                       X, a); 
+ 
+                return 0; 
+            } 
+ 
+            char production[20]; 
+ 
+            strcpy(production, G2_TABLE[row][col]); 
+ 
+            top--; 
+ 
+            /* Epsilon */ 
+            if(production[0] == '#') 
+            { 
+                printf("%-20s %-20s %-25s\n", 
+                       stack, 
+                       input + ip, 
+                       "Apply epsilon"); 
+            } 
+            else 
+            { 
+                int len = strlen(production); 
+                int i; 
+ 
+                for(i = len - 1; i >= 0; i--) 
+                    stack[top++] = production[i]; 
+ 
+                printf("%-20s %-20s %c -> %-20s\n", 
+                       stack, 
+                       input + ip, 
+                       X, 
+                       production); 
+            } 
+        } 
+    } 
+ 
+    return 0; 
+} 
+void convertG1(char input[], char output[]) 
+{ 
+    int i = 0; 
+    int j = 0; 
+ 
+    while(input[i] != '\0') 
+    { 
+        if(input[i] == 'i' && 
+           input[i + 1] == 'd') 
+        { 
+            output[j++] = 'i'; 
+            i += 2; 
+        } 
+        else 
+        { 
+            output[j++] = input[i++]; 
+        } 
+    } 
+ 
+    output[j++] = '$'; 
+    output[j] = '\0'; 
+} 
+int main() 
+{ 
+    int choice; 
+ 
+    char input[MAX]; 
+    char converted[MAX]; 
+ 
+    while(1) 
+    { 
+        printf("\n\n========================================\n"); 
+        printf("      PREDICTIVE PARSER USING FLEX\n"); 
+        printf("========================================\n"); 
+ 
+        printf("1. Grammar 1\n"); 
+        printf("2. Grammar 2\n"); 
+        printf("3. Exit\n"); 
+ 
+        printf("\nEnter your choice: "); 
+        scanf("%d", &choice); 
+ 
+        switch(choice) 
+        { 
+            case 1: 
+ 
+                firstFollowG1(); 
+ 
+                printTableG1(); 
+ 
+                printf("\nEnter expression: "); 
+                scanf("%s", input); 
+                convertG1(input, converted); 
+ 
+                printf("\nConverted input: %s\n", converted); 
+ 
+                if(parseG1(converted)) 
+                    printf("\nRESULT: STRING ACCEPTED\n"); 
+                else 
+                    printf("\nRESULT: STRING REJECTED\n"); 
+ 
+                break; 
+ 
+ 
+            case 2: 
+ 
+                firstFollowG2(); 
+ 
+                printTableG2(); 
+ 
+                printf("\nEnter string: "); 
+                scanf("%s", input); 
+                strcpy(converted, input); 
+ 
+                strcat(converted, "$"); 
+ 
+                printf("\nInput: %s\n", converted); 
+ 
+                if(parseG2(converted)) 
+                    printf("\nRESULT: STRING ACCEPTED\n"); 
+                else 
+                    printf("\nRESULT: STRING REJECTED\n"); 
+ 
+                break; 
+ 
+ 
+            case 3: 
+ 
+                printf("\nProgram terminated.\n"); 
+                exit(0); 
+ 
+ 
+            default: 
+ 
+                printf("\nInvalid choice!\n"); 
+        } 
+    } 
+ 
+    return 0; 
+} 
+ 
+%% 
+ 
+[ \t\n]+       ; 
+.              ; 
+ 
