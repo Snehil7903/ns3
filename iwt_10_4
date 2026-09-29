@@ -1,0 +1,11 @@
+let arr = [Number("10"), "hello", Number("20"), "abc", 30];
+
+let sum = 0;
+
+for (let value of arr) {
+    if (!isNaN(value)) {
+        sum += Number(value);
+    }
+}
+
+console.log("Sum =", sum);
