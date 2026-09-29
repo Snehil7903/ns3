@@ -1,0 +1,11 @@
+let arr = [10, "hello", 20, "30", 40, "abc", 50];
+
+let sum = 0;
+
+for (let value of arr) {
+    if (!isNaN(value) && typeof value === "number") {
+        sum += value;
+    }
+}
+
+console.log("Sum of integers =", sum);
