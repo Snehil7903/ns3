@@ -1,0 +1,20 @@
+let arr = [121, 25, 1331, 45, 77, 123];
+
+let sum = 0;
+
+for (let num of arr) {
+    let original = num;
+    let reverse = 0;
+
+    while (num > 0) {
+        let digit = num % 10;
+        reverse = reverse * 10 + digit;
+        num = Math.floor(num / 10);
+    }
+
+    if (original === reverse) {
+        sum += original;
+    }
+}
+
+console.log("Sum of palindrome numbers =", sum);
