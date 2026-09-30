@@ -59,7 +59,9 @@ int main (int argc, char *argv[])
     
     Ptr<RateErrorModel> em = CreateObject<RateErrorModel> ();
     em->SetAttribute ("ErrorRate", DoubleValue (residualPER));
-    em->SetAttribute ("ErrorUnit", StringValue("ERROR_UNIT_PACKET"));
+    
+    // FIX: Use EnumValue and cast the RateErrorModel enum correctly instead of using StringValue
+    em->SetAttribute ("ErrorUnit", EnumValue (RateErrorModel::ERROR_UNIT_PACKET));
     
     devices.Get (1)->SetAttribute ("ReceiveErrorModel", PointerValue (em));
     
