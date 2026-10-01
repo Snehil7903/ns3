@@ -89,7 +89,8 @@ int main(int argc, char* argv[])
     Ipv4Address destinationIp = interfaces[4].GetAddress(1); 
     
     PingHelper pingApp(destinationIp);
-    pingApp.SetAttribute("VerboseMode", EnumValue(Ping::VerboseMode::VERBOSE));
+    // FIXED: Passed as StringValue to properly map to the enum underlying type
+    pingApp.SetAttribute("VerboseMode", StringValue("Verbose"));
 
     auto appContainer = pingApp.Install(subnetHosts[0].Get(0));
     appContainer.Start(Seconds(1.0));
