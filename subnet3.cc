@@ -48,8 +48,8 @@ int main(int argc, char *argv[])
     serverApp.Start(Seconds(1.0));
     serverApp.Stop(Seconds(10.0));
 
-    // 7. Install UDP Echo Clients on remaining nodes using modern type definitions
-    for (std::size_t i = 1; i < nodes.GetN(); ++i) 
+    // 7. Install UDP Echo Clients on remaining nodes using ns-3 compliant types
+    for (uint32_t i = 1; i < nodes.GetN(); ++i) 
     {
         // All clients target the IP assigned to Node 0
         UdpEchoClientHelper echoClient(interfaces.GetAddress(0), 9);
@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
     const double xStart = 10.0;
     const double yPos = 30.0;
     
-    for (std::size_t i = 0; i < nodes.GetN(); ++i) 
+    for (uint32_t i = 0; i < nodes.GetN(); ++i) 
     {
         anim.SetConstantPosition(nodes.Get(i), xStart + (i * 20.0), yPos);
         
