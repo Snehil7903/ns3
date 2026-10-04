@@ -4,11 +4,48 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/netanim-module.h"
-#include "ns3/seq-ts-header.h"
+
+#include <iostream>
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE("StopAndWaitSequenceExample");
+NS_LOG_COMPONENT_DEFINE("ModernStopAndWait");
+
+/* ========================================================================
+   Custom Lightweight Protocol Header
+   ======================================================================== */
+class ProtocolHeader : public Header 
+{
+public:
+  static TypeId GetTypeId() 
+  {
+    static TypeId tid = TypeId("ns3::ProtocolHeader")
+                            .SetParent<Header>()
+                            .SetGroupName("Applications")
+                            .AddConstructor<ProtocolHeader>();
+    return tid;
+  }
+
+  TypeId GetInstanceTypeId() const override { return GetTypeId(); }
+
+  void Serialize(Buffer::Iterator start) const override { start.WriteHtonU32(m_seq); }
+
+  uint32_t Deserialize(Buffer::Iterator start) override 
+  {
+    m_seq = start.ReadNtohU32();
+    return 4; // Read 4 bytes (uint32_t)
+  }
+
+  uint32_t GetSerializedSize() const override { return 4; }
+
+  void Print(std::ostream &os) const override { os << "seq=" << m_seq; }
+
+  void SetSeq(uint32_t seq) { m_seq = seq; }
+  uint32_t GetSeq() const { return m_seq; }
+
+private:
+  uint32_t m_seq{0};
+};
 
 /* ========================================================================
    Sender Application
@@ -27,7 +64,7 @@ public:
 
   StopWaitSender() = default;
 
-  void Setup(Ptr<Socket> socket, Address address, Time timeout)
+  void Setup(Ptr<Socket> socket, const Address &address, Time timeout)
   {
     m_socket = socket;
     m_peer = address;
@@ -37,20 +74,16 @@ public:
 private:
   void StartApplication() override
   {
-    if (m_socket)
-    {
-      m_socket->Connect(m_peer);
-      m_socket->SetRecvCallback(MakeCallback(&StopWaitSender::ReceiveAck, this));
-    }
+    if (!m_socket) return;
+    
+    m_socket->Connect(m_peer);
+    m_socket->SetRecvCallback(MakeCallback(&StopWaitSender::ReceiveAck, this));
     SendPacket();
   }
 
   void StopApplication() override
   {
-    if (m_timeoutEvt.IsRunning())
-    {
-      m_timeoutEvt.Cancel();
-    }
+    if (m_timeoutEvt.IsRunning()) m_timeoutEvt.Cancel();
 
     if (m_socket)
     {
@@ -61,23 +94,20 @@ private:
 
   void SendPacket()
   {
-    if (m_packetsSent < m_pktCount)
-    {
-      Ptr<Packet> packet = Create<Packet>(1024);
+    if (m_packetsSent >= m_pktCount) return;
 
-      SeqTsHeader seqHeader;
-      seqHeader.SetSeq(m_seq);
-      packet->AddHeader(seqHeader);
+    auto packet = Create<Packet>(1024);
+    ProtocolHeader header;
+    header.SetSeq(m_seq);
+    packet->AddHeader(header);
 
-      NS_LOG_UNCOND("Sender: Sending Pkt Seq " << m_seq << " at " << Simulator::Now().GetSeconds() << "s");
-      m_socket->Send(packet);
+    std::cout << "Sender: Sending Pkt Seq " << m_seq 
+              << " at " << Simulator::Now().GetSeconds() << "s\n";
+    m_socket->Send(packet);
 
-      if (m_timeoutEvt.IsRunning())
-      {
-        m_timeoutEvt.Cancel(); 
-      }
-      m_timeoutEvt = Simulator::Schedule(m_timeout, &StopWaitSender::SendPacket, this);
-    }
+    if (m_timeoutEvt.IsRunning()) m_timeoutEvt.Cancel(); 
+    
+    m_timeoutEvt = Simulator::Schedule(m_timeout, &StopWaitSender::SendPacket, this);
   }
 
   void ReceiveAck(Ptr<Socket> socket)
@@ -85,20 +115,15 @@ private:
     Ptr<Packet> packet;
     while ((packet = socket->Recv()))
     {
-      SeqTsHeader ackHeader;
-      if (packet->RemoveHeader(ackHeader) == 0) 
-      {
-        continue; 
-      }
+      ProtocolHeader ackHeader;
+      if (packet->RemoveHeader(ackHeader) == 0) continue; 
       
       if (ackHeader.GetSeq() == m_seq)
       {
-        if (m_timeoutEvt.IsRunning())
-        {
-          m_timeoutEvt.Cancel();
-        }
+        if (m_timeoutEvt.IsRunning()) m_timeoutEvt.Cancel();
 
-        NS_LOG_UNCOND("Sender: Received ACK for Seq " << m_seq << " at " << Simulator::Now().GetSeconds() << "s");
+        std::cout << "Sender: Received ACK for Seq " << m_seq 
+                  << " at " << Simulator::Now().GetSeconds() << "s\n";
 
         m_seq = 1 - m_seq; 
         m_packetsSent++;
@@ -110,7 +135,7 @@ private:
       }
       else
       {
-         NS_LOG_UNCOND("Sender: Ignored invalid/duplicate ACK for Seq " << ackHeader.GetSeq());
+         std::cout << "Sender: Ignored invalid/duplicate ACK for Seq " << ackHeader.GetSeq() << "\n";
       }
     }
   }
@@ -141,18 +166,12 @@ public:
 
   StopWaitReceiver() = default;
 
-  void Setup(Ptr<Socket> socket)
-  {
-    m_socket = socket;
-  }
+  void Setup(Ptr<Socket> socket) { m_socket = socket; }
 
 private:
   void StartApplication() override
   {
-    if (m_socket)
-    {
-      m_socket->SetRecvCallback(MakeCallback(&StopWaitReceiver::HandleRead, this));
-    }
+    if (m_socket) m_socket->SetRecvCallback(MakeCallback(&StopWaitReceiver::HandleRead, this));
   }
 
   void StopApplication() override
@@ -171,26 +190,24 @@ private:
 
     while ((packet = socket->RecvFrom(from)))
     {
-      SeqTsHeader seqHeader;
-      if (packet->RemoveHeader(seqHeader) == 0)
-      {
-        continue;
-      }
-      uint32_t recvSeq = seqHeader.GetSeq();
+      ProtocolHeader seqHeader;
+      if (packet->RemoveHeader(seqHeader) == 0) continue;
+
+      const uint32_t recvSeq = seqHeader.GetSeq();
 
       if (recvSeq == m_expectedSeq)
       {
-        NS_LOG_UNCOND("Receiver: Received expected Packet Seq " << recvSeq << ".");
+        std::cout << "Receiver: Received expected Packet Seq " << recvSeq << ".\n";
         m_expectedSeq = 1 - m_expectedSeq; 
       }
       else
       {
-        NS_LOG_UNCOND("Receiver: Received DUPLICATE Packet Seq " << recvSeq << ". Discarding payload.");
+        std::cout << "Receiver: Received DUPLICATE Packet Seq " << recvSeq << ". Discarding payload.\n";
       }
 
-      NS_LOG_UNCOND("Receiver: Sending ACK for Seq " << recvSeq << "...");
-      Ptr<Packet> ack = Create<Packet>(10);
-      SeqTsHeader ackHeader;
+      std::cout << "Receiver: Sending ACK for Seq " << recvSeq << "...\n";
+      auto ack = Create<Packet>(10);
+      ProtocolHeader ackHeader;
       ackHeader.SetSeq(recvSeq);
       ack->AddHeader(ackHeader);
 
@@ -219,6 +236,7 @@ int main(int argc, char *argv[])
 
   NetDeviceContainer devices = p2p.Install(nodes);
 
+  // Modern configuration of Error Models
   auto em = CreateObject<RateErrorModel>();
   em->SetAttribute("ErrorRate", DoubleValue(0.15)); 
   em->SetAttribute("ErrorUnit", StringValue("ERROR_UNIT_PACKET"));
@@ -233,7 +251,7 @@ int main(int argc, char *argv[])
 
   constexpr uint16_t port = 8080;
 
-  // Setup Receiver
+  // Setup Receiver Node
   Ptr<Socket> recvSocket = Socket::CreateSocket(nodes.Get(1), UdpSocketFactory::GetTypeId());
   recvSocket->Bind(InetSocketAddress(Ipv4Address::GetAny(), port));
 
@@ -243,7 +261,7 @@ int main(int argc, char *argv[])
   receiver->SetStartTime(Seconds(0.0));
   receiver->SetStopTime(Seconds(20.0));
 
-  // Setup Sender
+  // Setup Sender Node
   Ptr<Socket> sendSocket = Socket::CreateSocket(nodes.Get(0), UdpSocketFactory::GetTypeId());
 
   auto sender = CreateObject<StopWaitSender>();
@@ -252,7 +270,7 @@ int main(int argc, char *argv[])
   sender->SetStartTime(Seconds(1.0));
   sender->SetStopTime(Seconds(20.0));
 
-  // Visualizer / NetAnim Output Configuration
+  // Animation Infrastructure
   AnimationInterface anim("stopwait.xml");
   anim.SetConstantPosition(nodes.Get(0), 10.0, 20.0);
   anim.SetConstantPosition(nodes.Get(1), 50.0, 20.0);
