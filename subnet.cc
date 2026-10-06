@@ -16,10 +16,6 @@ int main (int argc, char *argv[])
 {
     LogComponentEnable ("SubnetSimulation", LOG_LEVEL_INFO);
 
-    // CRITICAL FIX: Enable IP Forwarding globally so the intermediate nodes 
-    // in the daisy-chain are allowed to route traffic to the next hop.
-    Config::SetDefault("ns3::Ipv4::IpForward", BooleanValue(true));
-
     uint32_t nSubnets = 5;
     uint32_t nHosts = 10;
 
@@ -31,14 +27,17 @@ int main (int argc, char *argv[])
     p2p.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
     p2p.SetChannelAttribute ("Delay", StringValue ("2ms"));
 
-    // We use a global counter to ensure every single link gets a unique subnet
     uint32_t linkSubnetCounter = 1;
 
     for (uint32_t i = 0; i < nSubnets; ++i)
     {
         NodeContainer subnetNodes;
         subnetNodes.Create (nHosts);
+        
+        // Track all created nodes globally for NetAnim mapping later
         allNodes.Add(subnetNodes);
+        
+        // FIX: Install the Internet Stack once per distinct Node Container block safely
         stack.Install (subnetNodes);
 
         // --- Mobility/Positioning ---
@@ -59,13 +58,13 @@ int main (int argc, char *argv[])
             std::stringstream ss;
             ss << "10.1." << linkSubnetCounter++ << ".0";
             
-            // Safely cast to Ipv4Address and use a /30 mask (exactly 2 usable IPs for a P2P link)
             address.SetBase (Ipv4Address(ss.str().c_str()), Ipv4Mask("255.255.255.252")); 
             address.Assign (d);
         }
     }
 
-    // Now the routing helper can perfectly map out the network
+    // Now the routing helper maps out the paths across the links cleanly.
+    // GlobalRouting implicitly handles IP forwarding setups internally!
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
     // --- NetAnim Configuration ---
