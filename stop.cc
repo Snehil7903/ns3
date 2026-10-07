@@ -55,7 +55,7 @@ class StopWaitSender : public Application
 public:
   static TypeId GetTypeId()
   {
-    static TypeId tid = TypeId("StopWaitSender")
+    static TypeId tid = TypeId("ns3::StopWaitSender")
                             .SetParent<Application>()
                             .SetGroupName("Applications")
                             .AddConstructor<StopWaitSender>();
@@ -63,6 +63,7 @@ public:
   }
 
   StopWaitSender() = default;
+  ~StopWaitSender() override = default;
 
   void Setup(Ptr<Socket> socket, const Address &address, Time timeout)
   {
@@ -101,8 +102,8 @@ private:
     header.SetSeq(m_seq);
     packet->AddHeader(header);
 
-    std::cout << "Sender: Sending Pkt Seq " << m_seq 
-              << " at " << Simulator::Now().GetSeconds() << "s\n";
+    NS_LOG_UNCOND("Sender: Sending Pkt Seq " << m_seq 
+                  << " at " << Simulator::Now().GetSeconds() << "s");
     m_socket->Send(packet);
 
     if (m_timeoutEvt.IsRunning()) m_timeoutEvt.Cancel(); 
@@ -122,8 +123,8 @@ private:
       {
         if (m_timeoutEvt.IsRunning()) m_timeoutEvt.Cancel();
 
-        std::cout << "Sender: Received ACK for Seq " << m_seq 
-                  << " at " << Simulator::Now().GetSeconds() << "s\n";
+        NS_LOG_UNCOND("Sender: Received ACK for Seq " << m_seq 
+                      << " at " << Simulator::Now().GetSeconds() << "s");
 
         m_seq = 1 - m_seq; 
         m_packetsSent++;
@@ -135,7 +136,7 @@ private:
       }
       else
       {
-         std::cout << "Sender: Ignored invalid/duplicate ACK for Seq " << ackHeader.GetSeq() << "\n";
+         NS_LOG_UNCOND("Sender: Ignored invalid/duplicate ACK for Seq " << ackHeader.GetSeq());
       }
     }
   }
@@ -157,7 +158,7 @@ class StopWaitReceiver : public Application
 public:
   static TypeId GetTypeId()
   {
-    static TypeId tid = TypeId("StopWaitReceiver")
+    static TypeId tid = TypeId("ns3::StopWaitReceiver")
                             .SetParent<Application>()
                             .SetGroupName("Applications")
                             .AddConstructor<StopWaitReceiver>();
@@ -165,6 +166,7 @@ public:
   }
 
   StopWaitReceiver() = default;
+  ~StopWaitReceiver() override = default;
 
   void Setup(Ptr<Socket> socket) { m_socket = socket; }
 
@@ -197,15 +199,15 @@ private:
 
       if (recvSeq == m_expectedSeq)
       {
-        std::cout << "Receiver: Received expected Packet Seq " << recvSeq << ".\n";
+        NS_LOG_UNCOND("Receiver: Received expected Packet Seq " << recvSeq << ".");
         m_expectedSeq = 1 - m_expectedSeq; 
       }
       else
       {
-        std::cout << "Receiver: Received DUPLICATE Packet Seq " << recvSeq << ". Discarding payload.\n";
+        NS_LOG_UNCOND("Receiver: Received DUPLICATE Packet Seq " << recvSeq << ". Discarding payload.");
       }
 
-      std::cout << "Receiver: Sending ACK for Seq " << recvSeq << "...\n";
+      NS_LOG_UNCOND("Receiver: Sending ACK for Seq " << recvSeq << "...");
       auto ack = Create<Packet>(10);
       ProtocolHeader ackHeader;
       ackHeader.SetSeq(recvSeq);
@@ -224,7 +226,8 @@ private:
    ======================================================================== */
 int main(int argc, char *argv[])
 {
-  CommandLine cmd;
+  // 1. Modernized CommandLine initialization passing __FILE__
+  CommandLine cmd(__FILE__);
   cmd.Parse(argc, argv);
 
   NodeContainer nodes;
@@ -236,10 +239,10 @@ int main(int argc, char *argv[])
 
   NetDeviceContainer devices = p2p.Install(nodes);
 
-  // Modern configuration of Error Models
+  // 2. FIXED: Modern explicit EnumValue configuration for the Error Model
   auto em = CreateObject<RateErrorModel>();
   em->SetAttribute("ErrorRate", DoubleValue(0.15)); 
-  em->SetAttribute("ErrorUnit", StringValue("ERROR_UNIT_PACKET"));
+  em->SetAttribute("ErrorUnit", EnumValue(RateErrorModel::ERROR_UNIT_PACKET));
   devices.Get(1)->SetAttribute("ReceiveErrorModel", PointerValue(em));
 
   InternetStackHelper stack;
