@@ -1,6 +1,5 @@
-#include <format>
 #include <string>
-#include <string_view>
+#include <sstream>
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
@@ -14,7 +13,7 @@ NS_LOG_COMPONENT_DEFINE("BusTopologyWithNetAnim");
 
 int main (int argc, char *argv[]) 
 {
-    // Modern ns-3: Pass __FILE__ to CommandLine for better usage reporting
+    // Enable usage reporting safely
     CommandLine cmd (__FILE__);
     cmd.Parse(argc, argv);
 
@@ -26,25 +25,24 @@ int main (int argc, char *argv[])
 
     CsmaHelper csma;
     csma.SetChannelAttribute("DataRate", StringValue("10Mbps"));
-    // Idiomatic ns-3: Use string representation for time attributes
     csma.SetChannelAttribute("Delay", StringValue("6560ns"));
 
-    auto devices = csma.Install(nodes);
+    NetDeviceContainer devices = csma.Install(nodes);
 
     InternetStackHelper stack;
     stack.Install(nodes);
 
     Ipv4AddressHelper address;
     address.SetBase("10.1.1.0", "255.255.255.0");
-    auto interfaces = address.Assign(devices);
+    Ipv4InterfaceContainer interfaces = address.Assign(devices);
 
     // Setup UDP Echo Server on Node 0
     UdpEchoServerHelper echoServer(9);
-    auto serverApp = echoServer.Install(nodes.Get(0));
+    ApplicationContainer serverApp = echoServer.Install(nodes.Get(0));
     serverApp.Start(Seconds(1.0));
     serverApp.Stop(Seconds(10.0));
 
-    // Modern ns-3 API alignment: Use uint32_t to match GetN() and Get() signatures
+    // Setup UDP Echo Clients on Nodes 1, 2, and 3
     const uint32_t totalNodes = nodes.GetN();
     for (uint32_t i = 1; i < totalNodes; ++i) 
     {
@@ -53,12 +51,12 @@ int main (int argc, char *argv[])
         echoClient.SetAttribute("Interval", TimeValue(Seconds(1.0)));
         echoClient.SetAttribute("PacketSize", UintegerValue(1024));
 
-        auto clientApp = echoClient.Install(nodes.Get(i));
+        ApplicationContainer clientApp = echoClient.Install(nodes.Get(i));
         clientApp.Start(Seconds(2.0 + static_cast<double>(i)));
         clientApp.Stop(Seconds(10.0));
     }
 
-    // NetAnim Configuration
+    // NetAnim Configuration - Initialize BEFORE configuring node elements
     AnimationInterface anim("bus-topology.xml");
     anim.EnablePacketMetadata(true);
 
@@ -68,21 +66,25 @@ int main (int argc, char *argv[])
 
     for (uint32_t i = 0; i < totalNodes; ++i) 
     {
-        auto node = nodes.Get(i);
+        Ptr<Node> node = nodes.Get(i);
+        uint32_t nodeId = node->GetId(); // Explicitly fetch Node ID
         
+        // Use NetAnim's built-in helper for positions
         anim.SetConstantPosition(node, xStart + static_cast<double>(i) * nodeSpacing, yPos);
         
-        // Modern C++20: Replaced legacy std::to_string with efficient std::format
-        std::string desc = (i == 0) ? "Server" : std::format("Client {}", i);
-        anim.UpdateNodeDescription(node, desc);
-
+        // Use robust std::ostringstream to bypass compiler-specific standard levels
+        std::ostringstream oss;
         if (i == 0) 
         {
-            anim.UpdateNodeColor(node, 255, 0, 0); // Red for Server
+            oss << "Server";
+            anim.UpdateNodeDescription(nodeId, oss.str()); // ID signature
+            anim.UpdateNodeColor(nodeId, 255, 0, 0);       // Red for Server
         } 
         else 
         {
-            anim.UpdateNodeColor(node, 0, 0, 255); // Blue for Clients
+            oss << "Client " << i;
+            anim.UpdateNodeDescription(nodeId, oss.str()); // ID signature
+            anim.UpdateNodeColor(nodeId, 0, 0, 255);       // Blue for Clients
         }
     }
 
