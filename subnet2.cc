@@ -35,10 +35,8 @@ int main (int argc, char *argv[])
     InternetStackHelper stack;
     stack.Install(router);
 
-    // Explicitly enable IP forwarding on the router so it can route between subnets
-    auto routerIpv4 = router.Get(0)->GetObject<Ipv4>();
-    routerIpv4->SetAttribute("IpForward", BooleanValue(true));
-
+    // IP forwarding is enabled by default in ns-3's InternetStackHelper, 
+    // but you can explicitly ensure global routing knows about it.
     Ipv4AddressHelper address;
     const Ipv4Mask mask("255.255.255.240"); // Provides 14 usable IPs per subnet (.1 to .14)
 
@@ -56,12 +54,14 @@ int main (int argc, char *argv[])
         subnetHosts[i].Create(nHosts);
         stack.Install(subnetHosts[i]);
 
-        // Separate container for devices on this specific subnet bus
-        NetDeviceContainer meshDevices;
-        
-        // Install CSMA net device on the router and the subnet hosts for this channel specifically
-        meshDevices.Add(csma.Install(router.Get(0)));
-        meshDevices.Add(csma.Install(subnetHosts[i]));
+        // FIX: Combine the router and subnet hosts into a unified topology container 
+        // to ensure they are bound to the SAME physical CSMA channel.
+        NodeContainer subnetTopology;
+        subnetTopology.Add(router.Get(0));
+        subnetTopology.Add(subnetHosts[i]);
+
+        // Install CSMA net devices across the joined channel container
+        NetDeviceContainer meshDevices = csma.Install(subnetTopology);
 
         // Assign IP Addresses ensuring no overlap by striding by 16 using C++ string creation
         std::string subnetIp = "192.168.72." + std::to_string(i * 16);
@@ -83,7 +83,7 @@ int main (int argc, char *argv[])
 
     // ---- Ping Application ----
     // Target: Subnet 5 (index 4), Host 0. 
-    // Index 0 of interface is the Router, so index 1 is the first host.
+    // Index 0 of the interface is the Router's interface on that subnet, so index 1 is host 0.
     Ipv4Address targetIp = interfaces[4].GetAddress(1); 
     
     V4PingHelper ping(targetIp);
