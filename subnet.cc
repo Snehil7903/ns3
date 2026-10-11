@@ -29,16 +29,15 @@ int main (int argc, char *argv[])
 
     uint32_t linkSubnetCounter = 1;
 
+    // Create a vector to keep track of individual subnet groups
+    std::vector<NodeContainer> subnets(nSubnets);
+
     for (uint32_t i = 0; i < nSubnets; ++i)
     {
-        NodeContainer subnetNodes;
-        subnetNodes.Create (nHosts);
+        subnets[i].Create (nHosts);
         
-        // Track all created nodes globally for NetAnim mapping later
-        allNodes.Add(subnetNodes);
-        
-        // FIX: Install the Internet Stack once per distinct Node Container block safely
-        stack.Install (subnetNodes);
+        // Track all created nodes globally for NetAnim and Stack installation
+        allNodes.Add(subnets[i]);
 
         // --- Mobility/Positioning ---
         MobilityHelper mobility;
@@ -48,11 +47,17 @@ int main (int argc, char *argv[])
         }
         mobility.SetPositionAllocator (positionAlloc);
         mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
-        mobility.Install (subnetNodes);
+        mobility.Install (subnets[i]);
+    }
 
-        // --- IP Address Assignment ---
+    // FIX: Install the Internet Stack globally ONCE across all created nodes
+    stack.Install (allNodes);
+
+    // --- Link Creation & IP Address Assignment ---
+    for (uint32_t i = 0; i < nSubnets; ++i)
+    {
         for (uint32_t j = 0; j < nHosts - 1; ++j) {
-            NetDeviceContainer d = p2p.Install (subnetNodes.Get(j), subnetNodes.Get(j+1));
+            NetDeviceContainer d = p2p.Install (subnets[i].Get(j), subnets[i].Get(j+1));
             
             // Create a unique /30 subnet for EVERY single link
             std::stringstream ss;
@@ -64,7 +69,6 @@ int main (int argc, char *argv[])
     }
 
     // Now the routing helper maps out the paths across the links cleanly.
-    // GlobalRouting implicitly handles IP forwarding setups internally!
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
     // --- NetAnim Configuration ---
