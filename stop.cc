@@ -77,7 +77,8 @@ private:
   {
     if (!m_socket) return;
     
-    m_socket->Connect(m_peer);
+    // FIXED: Bind locally so the socket can receive incoming ACK packets
+    m_socket->Bind();
     m_socket->SetRecvCallback(MakeCallback(&StopWaitSender::ReceiveAck, this));
     SendPacket();
   }
@@ -104,7 +105,9 @@ private:
 
     NS_LOG_UNCOND("Sender: Sending Pkt Seq " << m_seq 
                   << " at " << Simulator::Now().GetSeconds() << "s");
-    m_socket->Send(packet);
+    
+    // FIXED: Use SendTo instead of Send for clean UDP transport behavior
+    m_socket->SendTo(packet, 0, m_peer);
 
     if (m_timeoutEvt.IsRunning()) m_timeoutEvt.Cancel(); 
     
@@ -226,7 +229,6 @@ private:
    ======================================================================== */
 int main(int argc, char *argv[])
 {
-  // 1. Modernized CommandLine initialization passing __FILE__
   CommandLine cmd(__FILE__);
   cmd.Parse(argc, argv);
 
@@ -239,7 +241,6 @@ int main(int argc, char *argv[])
 
   NetDeviceContainer devices = p2p.Install(nodes);
 
-  // 2. FIXED: Modern explicit EnumValue configuration for the Error Model
   auto em = CreateObject<RateErrorModel>();
   em->SetAttribute("ErrorRate", DoubleValue(0.15)); 
   em->SetAttribute("ErrorUnit", EnumValue(RateErrorModel::ERROR_UNIT_PACKET));
