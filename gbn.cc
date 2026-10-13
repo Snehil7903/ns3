@@ -30,10 +30,6 @@ int main(int argc, char* argv[])
     InternetStackHelper internetStack;
     internetStack.Install(routerNode);
 
-    // Explicitly enable IPv4 Routing/Forwarding on the Router node
-    auto ipv4Router = routerNode.Get(0)->GetObject<Ipv4>();
-    ipv4Router->SetAttribute("IpForward", BooleanValue(true));
-
     // 2. Configure Global Mobility
     MobilityHelper mobility;
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
@@ -86,11 +82,12 @@ int main(int argc, char* argv[])
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
     // 6. Deploy Simulation Applications (Ping Subnet 0 Host 0 -> Subnet 4 Host 0)
+    // index 0 is the router on the subnet link, index 1 is Host 0
     Ipv4Address destinationIp = interfaces[4].GetAddress(1); 
     
     PingHelper pingApp(destinationIp);
-    // FIXED: Passed as StringValue to properly map to the enum underlying type
-    pingApp.SetAttribute("VerboseMode", StringValue("Verbose"));
+    // FIXED: Corrected the VerboseMode value string initialization to match ns-3 enum schema
+    pingApp.SetAttribute("VerboseMode", StringValue("VERBOSE"));
 
     auto appContainer = pingApp.Install(subnetHosts[0].Get(0));
     appContainer.Start(Seconds(1.0));
