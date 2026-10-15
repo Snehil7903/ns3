@@ -9,7 +9,6 @@
 #include "ns3/applications-module.h"
 #include "ns3/mobility-module.h"
 #include "ns3/internet-apps-module.h"
-#include "ns3/v4ping-helper.h" 
 
 using namespace ns3;
 
@@ -54,7 +53,7 @@ int main (int argc, char *argv[])
         subnetHosts[i].Create(nHosts);
         stack.Install(subnetHosts[i]);
 
-        // FIX: Combine the router and subnet hosts into a unified topology container 
+        // Combine the router and subnet hosts into a unified topology container 
         // to ensure they are bound to the SAME physical CSMA channel.
         NodeContainer subnetTopology;
         subnetTopology.Add(router.Get(0));
@@ -81,13 +80,13 @@ int main (int argc, char *argv[])
     // Populate routing tables after all networks are created and IPs are assigned
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-    // ---- Ping Application ----
+    // ---- Ping Application (Fixed for modern ns-3) ----
     // Target: Subnet 5 (index 4), Host 0. 
     // Index 0 of the interface is the Router's interface on that subnet, so index 1 is host 0.
     Ipv4Address targetIp = interfaces[4].GetAddress(1); 
     
-    V4PingHelper ping(targetIp);
-    ping.SetAttribute("Verbose", BooleanValue(true));
+    PingHelper ping(targetIp);
+    ping.SetAttribute("VerboseMode", EnumValue(Ping::VerboseMode::VERBOSE));
 
     // Install on Subnet 1 (index 0), Host 0
     ApplicationContainer app = ping.Install(subnetHosts[0].Get(0));
