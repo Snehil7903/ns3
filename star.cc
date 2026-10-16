@@ -86,14 +86,17 @@ int main(int argc, char *argv[])
         clientApp.Stop(Seconds(20.0));
     }
 
+    // Initialize Global Routing Tables
+    Ipv4GlobalRoutingHelper::PopulateRoutingTables();
+
     // 6. NetAnim Visualization Setup
     AnimationInterface anim("star-topology.xml");
 
-    // Position Hub at (50, 50)
+    // Position Hub at (50, 50) using static class scope reference
     Ptr<Node> hubPtr = hubNode.Get(0);
-    anim.SetConstantPosition(hubPtr, 50.0, 50.0);
+    AnimationInterface::SetConstantPosition(hubPtr, 50.0, 50.0);
     anim.UpdateNodeDescription(hubPtr, "Hub");
-    anim.UpdateNodeColor(hubPtr, 255, 0, 0); // Red (Fixed: Internal API binding targets handled implicitly now)
+    anim.UpdateNodeColor(hubPtr, 255, 0, 0); // Red
 
     // Position Leaves in a circle around the Hub
     double radius = 30.0;
@@ -107,7 +110,8 @@ int main(int argc, char *argv[])
         double x = 50.0 + radius * std::cos(rad);
         double y = 50.0 + radius * std::sin(rad);
 
-        anim.SetConstantPosition(leafPtr, x, y);
+        // Using static class scope reference
+        AnimationInterface::SetConstantPosition(leafPtr, x, y);
         anim.UpdateNodeDescription(leafPtr, "Leaf-" + std::to_string(i));
         anim.UpdateNodeColor(leafPtr, 0, 0, 255); // Blue
     }
