@@ -67,7 +67,6 @@ int main (int argc, char *argv[])
     for (uint32_t i = 0; i < totalNodes; ++i) 
     {
         Ptr<Node> node = nodes.Get(i);
-        uint32_t nodeId = node->GetId(); // Explicitly fetch Node ID
         
         // Use NetAnim's built-in helper for positions
         anim.SetConstantPosition(node, xStart + static_cast<double>(i) * nodeSpacing, yPos);
@@ -77,14 +76,14 @@ int main (int argc, char *argv[])
         if (i == 0) 
         {
             oss << "Server";
-            anim.UpdateNodeDescription(nodeId, oss.str()); // ID signature
-            anim.UpdateNodeColor(nodeId, 255, 0, 0);       // Red for Server
+            anim.UpdateNodeDescription(node, oss.str());
+            anim.UpdateNodeColor(node, 255, 0, 0);       // Red for Server
         } 
         else 
         {
             oss << "Client " << i;
-            anim.UpdateNodeDescription(nodeId, oss.str()); // ID signature
-            anim.UpdateNodeColor(nodeId, 0, 0, 255);       // Blue for Clients
+            anim.UpdateNodeDescription(node, oss.str());
+            anim.UpdateNodeColor(node, 0, 0, 255);       // Blue for Clients
         }
     }
 
