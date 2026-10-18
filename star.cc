@@ -4,6 +4,7 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/netanim-module.h"
+#include "ns3/mobility-module.h" // Added required mobility header
 #include <cmath>
 #include <vector>
 #include <sstream> 
@@ -89,10 +90,16 @@ int main(int argc, char *argv[])
     // Initialize Global Routing Tables
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-    // 6. NetAnim Visualization Setup
+    // 6. Mobility Setup (Required for setting node positions correctly)
+    MobilityHelper mobility;
+    mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+    mobility.Install(hubNode);
+    mobility.Install(leafNodes);
+
+    // 7. NetAnim Visualization Setup
     AnimationInterface anim("star-topology.xml");
 
-    // Position Hub at (50, 50) using static class scope reference
+    // Position Hub at (50, 50)
     Ptr<Node> hubPtr = hubNode.Get(0);
     AnimationInterface::SetConstantPosition(hubPtr, 50.0, 50.0);
     anim.UpdateNodeDescription(hubPtr, "Hub");
@@ -110,7 +117,6 @@ int main(int argc, char *argv[])
         double x = 50.0 + radius * std::cos(rad);
         double y = 50.0 + radius * std::sin(rad);
 
-        // Using static class scope reference
         AnimationInterface::SetConstantPosition(leafPtr, x, y);
         anim.UpdateNodeDescription(leafPtr, "Leaf-" + std::to_string(i));
         anim.UpdateNodeColor(leafPtr, 0, 0, 255); // Blue
@@ -119,7 +125,7 @@ int main(int argc, char *argv[])
     // Enable packet tracing to see packet flow in NetAnim
     anim.EnablePacketMetadata(true); 
 
-    // 7. Run Simulation
+    // 8. Run Simulation
     Simulator::Stop(Seconds(20.0));
     Simulator::Run();
     Simulator::Destroy();
