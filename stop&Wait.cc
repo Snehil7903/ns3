@@ -11,8 +11,8 @@ NS_LOG_COMPONENT_DEFINE("StopAndWaitARQ");
 
 int main(int argc, char *argv[])
 {
-    // FIX: Pass __FILE__ into CommandLine to match modern ns-3 API standards
-    CommandLine cmd (__FILE__);
+    // FIX: Standard constructor declaration for maximum cross-version stability
+    CommandLine cmd;
     cmd.Parse(argc, argv);
 
     // Enable logging to see the "Send" and "Receive" events clearly in the terminal
