@@ -48,10 +48,15 @@ int main(int argc, char *argv[])
             NodeContainer pair(nodes.Get(i), nodes.Get(j));
             NetDeviceContainer devices = p2p.Install(pair);
 
+            // Dynamically manage octets to prevent runtime IP format crashes for nNodes > 23
+            uint32_t octet2 = (subnet / 254) + 1;
+            uint32_t octet3 = (subnet % 254) + 1;
+
             std::ostringstream oss;
-            oss << "10.1." << subnet++ << ".0";
+            oss << "10." << octet2 << "." << octet3 << ".0";
             address.SetBase(oss.str().c_str(), "255.255.255.0");
             address.Assign(devices);
+            subnet++;
         }
     }
 
@@ -61,39 +66,12 @@ int main(int argc, char *argv[])
     // 6. Install Application (Node 0 sends to the last Node)
     uint32_t sourceNode = 0;
     uint32_t destNode = nNodes - 1;
-    Ipv4Address addr;
-    bool found = false;
 
-    // Look up the destination IP matching the subnet shared with Node 0
-    Ptr<Ipv4> ipv4Source = nodes.Get(sourceNode)->GetObject<Ipv4>();
+    // Fetch the target destination address safely
     Ptr<Ipv4> ipv4Dest = nodes.Get(destNode)->GetObject<Ipv4>();
-
-    for (uint32_t i = 1; i < ipv4Source->GetNInterfaces() && !found; i++)
-    {
-        Ipv4InterfaceAddress srcIfaceAddr = ipv4Source->GetAddress(i, 0);
-        Ipv4Address srcIp = srcIfaceAddr.GetLocal();
-        Ipv4Mask srcMask = srcIfaceAddr.GetMask();
-
-        for (uint32_t j = 1; j < ipv4Dest->GetNInterfaces(); j++)
-        {
-            Ipv4InterfaceAddress destIfaceAddr = ipv4Dest->GetAddress(j, 0);
-            Ipv4Address destIp = destIfaceAddr.GetLocal();
-            
-            // Check if both IPs belong to the same point-to-point network subnet
-            if (srcIp.CombineWith(srcMask) == destIp.CombineWith(srcMask))
-            {
-                addr = destIp;
-                found = true;
-                break;
-            }
-        }
-    }
-
-    // Fallback in case loop fails to find a direct subnet match (uses any valid address on dest)
-    if (!found && ipv4Dest->GetNInterfaces() > 1)
-    {
-        addr = ipv4Dest->GetAddress(1, 0).GetLocal();
-    }
+    
+    // Index 0 is always the loopback address (127.0.0.1), Index 1 is the first real interface
+    Ipv4Address addr = ipv4Dest->GetAddress(1, 0).GetLocal();
 
     UdpEchoClientHelper echoClient(addr, 9);
     echoClient.SetAttribute("MaxPackets", UintegerValue(5));
