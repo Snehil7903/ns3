@@ -25,7 +25,7 @@ int main (int argc, char *argv[])
 
     CsmaHelper csma;
     csma.SetChannelAttribute("DataRate", StringValue("10Mbps"));
-    // FIX: Set Delay using TimeValue instead of StringValue
+    // Set Delay using TimeValue instead of StringValue
     csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560))); 
 
     NetDeviceContainer devices = csma.Install(nodes);
@@ -69,8 +69,8 @@ int main (int argc, char *argv[])
     {
         Ptr<Node> node = nodes.Get(i);
         
-        // FIX: Call SetConstantPosition using the correct static scope
-        AnimationInterface::SetConstantPosition(node, xStart + static_cast<double>(i) * nodeSpacing, yPos);
+        // FIXED: Call SetConstantPosition as a member method of the 'anim' object instance
+        anim.SetConstantPosition(node, xStart + static_cast<double>(i) * nodeSpacing, yPos);
         
         // Use robust std::ostringstream to bypass compiler-specific standard levels
         std::ostringstream oss;
