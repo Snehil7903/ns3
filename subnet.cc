@@ -1,6 +1,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
@@ -50,7 +51,7 @@ int main (int argc, char *argv[])
         mobility.Install (subnets[i]);
     }
 
-    // FIX: Install the Internet Stack globally ONCE across all created nodes
+    // Install the Internet Stack globally ONCE across all created nodes
     stack.Install (allNodes);
 
     // --- Link Creation & IP Address Assignment ---
@@ -63,7 +64,8 @@ int main (int argc, char *argv[])
             std::stringstream ss;
             ss << "10.1." << linkSubnetCounter++ << ".0";
             
-            address.SetBase (Ipv4Address(ss.str().c_str()), Ipv4Mask("255.255.255.252")); 
+            // FIXED: Explicitly set the base network and base host address "0.0.0.1"
+            address.SetBase (Ipv4Address(ss.str().c_str()), Ipv4Mask("255.255.255.252"), Ipv4Address("0.0.0.1")); 
             address.Assign (d);
         }
     }
