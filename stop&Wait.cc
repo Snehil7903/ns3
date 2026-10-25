@@ -11,8 +11,8 @@ NS_LOG_COMPONENT_DEFINE("StopAndWaitARQ");
 
 int main(int argc, char *argv[])
 {
-    // FIX: Standard constructor declaration for maximum cross-version stability
-    CommandLine cmd;
+    // FIX: Pass __FILE__ to the constructor for cross-version compatibility
+    CommandLine cmd(__FILE__);
     cmd.Parse(argc, argv);
 
     // Enable logging to see the "Send" and "Receive" events clearly in the terminal
