@@ -4,7 +4,7 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/netanim-module.h"
-#include "ns3/mobility-module.h" // Added required mobility header
+#include "ns3/mobility-module.h" 
 #include <cmath>
 #include <vector>
 #include <sstream> 
@@ -74,7 +74,6 @@ int main(int argc, char *argv[])
     // 5. Install UDP Echo Clients on Leaves
     for (uint32_t i = 0; i < nLeaf; i++)
     {
-        // The Hub is the first device (index 0) on the point-to-point link
         Ipv4Address hubAddress = linkInterfaces[i].GetAddress(0);
 
         UdpEchoClientHelper echoClient(hubAddress, 9);
@@ -99,9 +98,9 @@ int main(int argc, char *argv[])
     // 7. NetAnim Visualization Setup
     AnimationInterface anim("star-topology.xml");
 
-    // Position Hub at (50, 50)
+    // Position Hub at (50, 50) using the instantiated anim object
     Ptr<Node> hubPtr = hubNode.Get(0);
-    AnimationInterface::SetConstantPosition(hubPtr, 50.0, 50.0);
+    anim.SetConstantPosition(hubPtr, 50.0, 50.0);
     anim.UpdateNodeDescription(hubPtr, "Hub");
     anim.UpdateNodeColor(hubPtr, 255, 0, 0); // Red
 
@@ -117,7 +116,8 @@ int main(int argc, char *argv[])
         double x = 50.0 + radius * std::cos(rad);
         double y = 50.0 + radius * std::sin(rad);
 
-        AnimationInterface::SetConstantPosition(leafPtr, x, y);
+        // Fixed here to use instance method call
+        anim.SetConstantPosition(leafPtr, x, y);
         anim.UpdateNodeDescription(leafPtr, "Leaf-" + std::to_string(i));
         anim.UpdateNodeColor(leafPtr, 0, 0, 255); // Blue
     }
