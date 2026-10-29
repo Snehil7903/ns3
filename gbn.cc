@@ -88,8 +88,8 @@ int main(int argc, char* argv[])
     const Ipv4Address destinationIp = interfaces[4].GetAddress(1); 
     
     PingHelper pingApp(destinationIp);
-    // MODERNIZED: Safe enumeration attribute setup explicitly adhering to the core ns-3 API schema
-    pingApp.SetAttribute("VerboseMode", EnumValue(Ping::VerboseMode::VERBOSE));
+    // FIXED: Cast the enum value explicitly to an integer to satisfy the underlying ObjectFactory schema configuration
+    pingApp.SetAttribute("VerboseMode", EnumValue(static_cast<int>(Ping::VerboseMode::VERBOSE)));
 
     auto appContainer = pingApp.Install(subnetHosts[0].Get(0));
     appContainer.Start(Seconds(1.0));
