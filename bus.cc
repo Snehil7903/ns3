@@ -68,23 +68,25 @@ int main (int argc, char *argv[])
     for (uint32_t i = 0; i < totalNodes; ++i) 
     {
         Ptr<Node> node = nodes.Get(i);
+        uint32_t nodeId = node->GetId(); // Fetch the ID for NetAnim methods
         
-        // FIXED: Call SetConstantPosition as a member method of the 'anim' object instance
+        // Pass the node pointer for position
         anim.SetConstantPosition(node, xStart + static_cast<double>(i) * nodeSpacing, yPos);
         
-        // Use robust std::ostringstream to bypass compiler-specific standard levels
         std::ostringstream oss;
         if (i == 0) 
         {
             oss << "Server";
-            anim.UpdateNodeDescription(node, oss.str());
-            anim.UpdateNodeColor(node, 255, 0, 0);       // Red for Server
+            // FIXED: Pass nodeId instead of the node pointer
+            anim.UpdateNodeDescription(nodeId, oss.str());
+            anim.UpdateNodeColor(nodeId, 255, 0, 0);       // Red for Server
         } 
         else 
         {
             oss << "Client " << i;
-            anim.UpdateNodeDescription(node, oss.str());
-            anim.UpdateNodeColor(node, 0, 0, 255);       // Blue for Clients
+            // FIXED: Pass nodeId instead of the node pointer
+            anim.UpdateNodeDescription(nodeId, oss.str());
+            anim.UpdateNodeColor(nodeId, 0, 0, 255);       // Blue for Clients
         }
     }
 
