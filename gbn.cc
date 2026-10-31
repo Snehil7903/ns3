@@ -8,6 +8,7 @@
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
+#include "ns3/internet-apps-module.h" // ADDED: Required for modern Ping/PingHelper applications
 #include "ns3/csma-module.h"
 #include "ns3/netanim-module.h"
 #include "ns3/applications-module.h"
@@ -88,8 +89,8 @@ int main(int argc, char* argv[])
     const Ipv4Address destinationIp = interfaces[4].GetAddress(1); 
     
     PingHelper pingApp(destinationIp);
-    // FIXED: Cast the enum value explicitly to an integer to satisfy the underlying ObjectFactory schema configuration
-    pingApp.SetAttribute("VerboseMode", EnumValue(static_cast<int>(Ping::VerboseMode::VERBOSE)));
+    // FIXED: Pass the enum directly so NS-3's internal type system can infer the variant
+    pingApp.SetAttribute("VerboseMode", EnumValue(Ping::VerboseMode::VERBOSE));
 
     auto appContainer = pingApp.Install(subnetHosts[0].Get(0));
     appContainer.Start(Seconds(1.0));
