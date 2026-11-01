@@ -13,8 +13,8 @@ NS_LOG_COMPONENT_DEFINE("BusTopologyWithNetAnim");
 
 int main(int argc, char *argv[]) 
 {
-    // Modern CommandLine initialization without outdated macro parameters
-    CommandLine cmd;
+    // Modern CommandLine initialization with standard file macro registration
+    CommandLine cmd(__FILE__);
     cmd.Parse(argc, argv);
 
     // Enable logging to observe packet processing in the console
@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
         clientApp.Stop(Seconds(10.0));
     }
 
-    // Initialize layout tracking via a stationary mobility model
+    // Initialize layout tracking via a stationary mobility model (Required for NetAnim)
     MobilityHelper mobility;
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     mobility.Install(nodes);
@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
         std::string desc = (i == 0) ? "Server" : "Client " + std::to_string(i);
         anim.UpdateNodeDescription(nodes.Get(i), desc); 
 
-        // Apply strict color scheme: Server is Red, Clients are Blue
+        // Apply distinct color scheme: Server is Red, Clients are Blue
         if (i == 0)
         {
             anim.UpdateNodeColor(nodes.Get(i), 255, 0, 0); 
