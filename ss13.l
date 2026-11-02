@@ -3,7 +3,7 @@
 %}
 
 %%
-^(ibta|ibtea|a)$    {
+^(ibta|ibteae|a)$    {
                         printf("Valid if-then-else statement\n");
                     }
 
