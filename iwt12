@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Math & Error Examples</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            color: #333;
+        }
+        p {
+            font-size: 1.1em;
+            color: #555;
+        }
+        .instructions {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-left: 5px solid #2196f3;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>JavaScript Math & Error Examples</h1>
+    <div class="instructions">
+        <p><strong>Note:</strong> The JavaScript code is executing in the background. Please open your browser's <strong>Developer Console</strong> (F12 -> Console) to see the results of these examples.</p>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. Math Properties
+        // ==========================================
+        console.log("--- Math Properties ---");
+        console.log("Math.E (Euler's No.):", Math.E); //[span_0](start_span)[span_0](end_span)
+        console.log("Math.PI:", Math.PI); //[span_1](start_span)[span_1](end_span)
+        console.log("Math.SQRT2 (Square root of 2):", Math.SQRT2); //[span_2](start_span)[span_2](end_span)
+        console.log("Math.SQRT1_2 (Square root of 1/2):", Math.SQRT1_2); //[span_3](start_span)[span_3](end_span)
+        console.log("Math.LN2 (Natural logarithm of 2):", Math.LN2); //[span_4](start_span)[span_4](end_span)
+        console.log("Math.LN10 (Natural logarithm of 10):", Math.LN10); //[span_5](start_span)[span_5](end_span)
+        console.log("Math.LOG2E (Base 2 of logarithm E):", Math.LOG2E); //[span_6](start_span)[span_6](end_span)
+        console.log("Math.LOG10E (Base 10 of logarithm E):", Math.LOG10E); //[span_7](start_span)[span_7](end_span)
+
+        // ==========================================
+        // 2. Math Methods (Number to Integer)
+        // ==========================================
+        console.log("\n--- Math Methods (Number to Integer) ---");
+        let num1 = 4.6;
+        console.log("Math.round(4.6) - nearest integer:", Math.round(num1)); //[span_8](start_span)[span_8](end_span)
+        console.log("Math.ceil(4.6) - rounded up:", Math.ceil(num1)); //[span_9](start_span)[span_9](end_span)
+        console.log("Math.floor(4.6) - rounded down:", Math.floor(num1)); //[span_10](start_span)[span_10](end_span)
+        console.log("Math.trunc(4.6) - integer part only:", Math.trunc(num1)); //[span_11](start_span)[span_11](end_span)
+
+        // ==========================================
+        // 3. Math Methods (Sign, Pow, Sqrt, Abs)
+        // ==========================================
+        console.log("\n--- Math Methods (Sign, Pow, Sqrt, Abs) ---");
+        console.log("Math.sign(4) - positive returns:", Math.sign(4)); //[span_12](start_span)[span_12](end_span)
+        console.log("Math.sign(-4) - negative returns:", Math.sign(-4)); //[span_13](start_span)[span_13](end_span)
+        console.log("Math.sign(0) - zero returns:", Math.sign(0)); //[span_14](start_span)[span_14](end_span)
+        console.log("Math.pow(3, 2) - 3 to the power of 2:", Math.pow(3, 2)); //[span_15](start_span)[span_15](end_span)
+        console.log("Math.sqrt(16) - square root:", Math.sqrt(16)); //[span_16](start_span)[span_16](end_span)
+        console.log("Math.abs(-5) - absolute value:", Math.abs(-5)); //[span_17](start_span)[span_17](end_span)
+
+        // ==========================================
+        // 4. Math Methods (Trigonometry, Min/Max, Random, Log)
+        // ==========================================
+        console.log("\n--- Math Methods (Trig, Min/Max, Random, Log) ---");
+        // Trig functions take values in radians[span_18](start_span)[span_18](end_span)
+        console.log("Math.sin(Math.PI / 2):", Math.sin(Math.PI / 2)); //[span_19](start_span)[span_19](end_span)
+        console.log("Math.cos(Math.PI):", Math.cos(Math.PI)); //[span_20](start_span)[span_20](end_span)
+        
+        console.log("Math.min(10, 5, 20):", Math.min(10, 5, 20)); //[span_21](start_span)[span_21](end_span)
+        console.log("Math.max(10, 5, 20):", Math.max(10, 5, 20)); //[span_22](start_span)[span_22](end_span)
+        console.log("Math.random() - between 0 & 1:", Math.random()); //[span_23](start_span)[span_23](end_span)
+        console.log("Math.log(10):", Math.log(10)); //[span_24](start_span)[span_24](end_span)
+        console.log("Math.log2(8):", Math.log2(8)); //[span_25](start_span)[span_25](end_span)
+
+        // ==========================================
+        // 5. Number toPrecision() 
+        // ==========================================
+        console.log("\n--- Number toPrecision() ---");
+        let precisionNum = 5.123456; //[span_26](start_span)[span_26](end_span)
+        console.log("Original number:", precisionNum);
+        console.log("num.toPrecision(3):", precisionNum.toPrecision(3)); // Outputs "5.12[span_27](start_span)"[span_27](end_span)
+        console.log("num.toPrecision(2):", precisionNum.toPrecision(2)); // Outputs "5.1[span_28](start_span)"[span_28](end_span)
+
+        // ==========================================
+        // 6. Errors: Try & Catch
+        // ==========================================
+        console.log("\n--- Errors: Try & Catch Block ---");
+        try {
+            // Block of code to try[span_29](start_span)[span_29](end_span)
+            console.log("Trying to execute a non-existent function...");
+            thisFunctionDoesNotExist(); 
+        } catch (err) {
+            // Block of code to handle error[span_30](start_span)[span_30](end_span)
+            console.log("Error Caught! The error was:", err.message); 
+        }
+
+        // ==========================================
+        // 7. Specific Error Types (URIError & SyntaxError)
+        // ==========================================
+        console.log("\n--- Specific Error Types ---");
+        
+        // URIError Example
+        try {
+            console.log("Attempting to decode an invalid URI...");
+            decodeURI("% % %"); //[span_31](start_span)[span_31](end_span)
+        } catch (err) {
+            console.log("URIError caught:", err.name, "->", err.message);
+        }
+
+        // SyntaxError Example
+        // Note: Real syntax errors stop the script from running entirely. 
+        // We use eval() here to demonstrate catching a syntax error safely.
+        try {
+            console.log("Attempting to parse invalid syntax...");
+            eval('let fname = "John);');  // Missing closing quote[span_32](start_span)[span_32](end_span)
+        } catch (err) {
+            console.log("SyntaxError caught:", err.name, "->", err.message);
+        }
+        
+    </script>
+</body>
+</html>
