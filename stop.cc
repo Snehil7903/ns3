@@ -47,6 +47,8 @@ private:
   uint32_t m_seq{0};
 };
 
+NS_OBJECT_ENSURE_REGISTERED(ProtocolHeader);
+
 /* ========================================================================
    Sender Application
    ======================================================================== */
@@ -77,7 +79,6 @@ private:
   {
     if (!m_socket) return;
     
-    // FIXED: Bind locally so the socket can receive incoming ACK packets
     m_socket->Bind();
     m_socket->SetRecvCallback(MakeCallback(&StopWaitSender::ReceiveAck, this));
     SendPacket();
@@ -106,7 +107,6 @@ private:
     NS_LOG_UNCOND("Sender: Sending Pkt Seq " << m_seq 
                   << " at " << Simulator::Now().GetSeconds() << "s");
     
-    // FIXED: Use SendTo instead of Send for clean UDP transport behavior
     m_socket->SendTo(packet, 0, m_peer);
 
     if (m_timeoutEvt.IsRunning()) m_timeoutEvt.Cancel(); 
@@ -119,6 +119,8 @@ private:
     Ptr<Packet> packet;
     while ((packet = socket->Recv()))
     {
+      if (packet->GetSize() < 4) continue; // Boundary guard check against corrupted fragments
+      
       ProtocolHeader ackHeader;
       if (packet->RemoveHeader(ackHeader) == 0) continue; 
       
@@ -152,6 +154,8 @@ private:
   Time m_timeout{Seconds(1.0)};
   EventId m_timeoutEvt;
 };
+
+NS_OBJECT_ENSURE_REGISTERED(StopWaitSender);
 
 /* ========================================================================
    Receiver Application
@@ -195,6 +199,8 @@ private:
 
     while ((packet = socket->RecvFrom(from)))
     {
+      if (packet->GetSize() < 4) continue; // Boundary guard check
+
       ProtocolHeader seqHeader;
       if (packet->RemoveHeader(seqHeader) == 0) continue;
 
@@ -223,6 +229,8 @@ private:
   Ptr<Socket> m_socket{nullptr};
   uint32_t m_expectedSeq{0}; 
 };
+
+NS_OBJECT_ENSURE_REGISTERED(StopWaitReceiver);
 
 /* ========================================================================
    Main Execution
