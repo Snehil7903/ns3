@@ -8,7 +8,7 @@
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
-#include "ns3/internet-apps-module.h" // ADDED: Required for modern Ping/PingHelper applications
+#include "ns3/internet-apps-module.h" 
 #include "ns3/csma-module.h"
 #include "ns3/netanim-module.h"
 #include "ns3/applications-module.h"
@@ -24,6 +24,9 @@ int main(int argc, char* argv[])
 {
     CommandLine cmd(__FILE__);
     cmd.Parse(argc, argv);
+
+    // CRITICAL FIX: Enable IP Forwarding globally so the central router can route between subnets
+    Config::SetDefault("ns3::Ipv4::IpForward", BooleanValue(true));
 
     // 1. Initialize Core Router Architecture
     NodeContainer routerNode;
@@ -89,8 +92,8 @@ int main(int argc, char* argv[])
     const Ipv4Address destinationIp = interfaces[4].GetAddress(1); 
     
     PingHelper pingApp(destinationIp);
-    // FIXED: Pass the enum directly so NS-3's internal type system can infer the variant
-    pingApp.SetAttribute("VerboseMode", EnumValue(Ping::VerboseMode::VERBOSE));
+    // FIXED: The correct attribute name is "Verbose" taking a BooleanValue
+    pingApp.SetAttribute("Verbose", BooleanValue(true));
 
     auto appContainer = pingApp.Install(subnetHosts[0].Get(0));
     appContainer.Start(Seconds(1.0));
