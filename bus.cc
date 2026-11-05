@@ -6,6 +6,7 @@
 #include "ns3/csma-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/netanim-module.h"
+#include "ns3/mobility-module.h"
 
 using namespace ns3;
 
@@ -13,7 +14,6 @@ NS_LOG_COMPONENT_DEFINE("BusTopologyWithNetAnim");
 
 int main (int argc, char *argv[]) 
 {
-    // Enable usage reporting safely
     CommandLine cmd (__FILE__);
     cmd.Parse(argc, argv);
 
@@ -25,7 +25,6 @@ int main (int argc, char *argv[])
 
     CsmaHelper csma;
     csma.SetChannelAttribute("DataRate", StringValue("10Mbps"));
-    // Set Delay using TimeValue instead of StringValue
     csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560))); 
 
     NetDeviceContainer devices = csma.Install(nodes);
@@ -57,36 +56,45 @@ int main (int argc, char *argv[])
         clientApp.Stop(Seconds(10.0));
     }
 
-    // NetAnim Configuration - Initialize BEFORE configuring node elements
-    AnimationInterface anim("bus-topology.xml");
-    anim.EnablePacketMetadata(true);
+    // Populate routing tables so nodes know how to route echo packets
+    Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-    constexpr double xStart = 10.0;
-    constexpr double yPos = 30.0;
-    constexpr double nodeSpacing = 20.0;
+    // --- Mobility Model Configuration for NetAnim Positions ---
+    MobilityHelper mobility;
+    Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator>();
+    
+    double xStart = 10.0;
+    double yPos = 30.0;
+    double nodeSpacing = 20.0;
 
     for (uint32_t i = 0; i < totalNodes; ++i) 
     {
-        Ptr<Node> node = nodes.Get(i);
-        uint32_t nodeId = node->GetId(); // Fetch the ID for NetAnim methods
-        
-        // Pass the node pointer for position
-        anim.SetConstantPosition(node, xStart + static_cast<double>(i) * nodeSpacing, yPos);
-        
+        positionAlloc->Add(Vector(xStart + (static_cast<double>(i) * nodeSpacing), yPos, 0.0));
+    }
+    mobility.SetPositionAllocator(positionAlloc);
+    mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+    mobility.Install(nodes);
+
+    // --- NetAnim Configuration ---
+    AnimationInterface anim("bus-topology.xml");
+    anim.EnablePacketMetadata(true);
+
+    for (uint32_t i = 0; i < totalNodes; ++i) 
+    {
+        uint32_t nodeId = nodes.Get(i)->GetId();
         std::ostringstream oss;
+        
         if (i == 0) 
         {
             oss << "Server";
-            // FIXED: Pass nodeId instead of the node pointer
             anim.UpdateNodeDescription(nodeId, oss.str());
-            anim.UpdateNodeColor(nodeId, 255, 0, 0);       // Red for Server
+            anim.UpdateNodeColor(nodeId, 255, 0, 0); // Red for Server
         } 
         else 
         {
             oss << "Client " << i;
-            // FIXED: Pass nodeId instead of the node pointer
             anim.UpdateNodeDescription(nodeId, oss.str());
-            anim.UpdateNodeColor(nodeId, 0, 0, 255);       // Blue for Clients
+            anim.UpdateNodeColor(nodeId, 0, 0, 255); // Blue for Clients
         }
     }
 
