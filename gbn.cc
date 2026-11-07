@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
     CommandLine cmd(__FILE__);
     cmd.Parse(argc, argv);
 
-    // CRITICAL FIX: Enable IP Forwarding globally so the central router can route between subnets
+    // Enable IP Forwarding globally so the central router can route between subnets
     Config::SetDefault("ns3::Ipv4::IpForward", BooleanValue(true));
 
     // 1. Initialize Core Router Architecture
@@ -50,10 +50,11 @@ int main(int argc, char* argv[])
     csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560)));
 
     Ipv4AddressHelper addressAllocator;
-    const Ipv4Mask subnetMask{"255.255.255.240"}; // Efficient /28 subnet sizing
+    const Ipv4Mask subnetMask{"255.255.255.240"}; // /28 subnet (14 usable hosts)
 
     std::vector<NodeContainer> subnetHosts(NUM_SUBNETS);
     std::vector<Ipv4InterfaceContainer> interfaces(NUM_SUBNETS);
+    Ipv4StaticRoutingHelper staticRoutingHelper;
 
     // 4. Construct Topologies Dynamically via Modern C++ Ranges
     for (const auto subnetIdx : std::views::iota(0u, NUM_SUBNETS))
@@ -69,12 +70,22 @@ int main(int argc, char* argv[])
 
         auto netDevices = csma.Install(localNetwork);
 
-        // Compile-time safe string interpolation for addressing blocks
+        // Assign IP addresses (Index 0 = Router, Indices 1..10 = Hosts)
         std::string baseIp = std::format("192.168.72.{}", subnetIdx * 16);
         addressAllocator.SetBase(baseIp.c_str(), subnetMask);
         interfaces[subnetIdx] = addressAllocator.Assign(netDevices); 
 
-        // Set Host Topology Grid Coordinates using range-based expressions
+        // FIX: Set Default Gateway on each host pointing to the Router's subnet IP
+        Ipv4Address routerGateway = interfaces[subnetIdx].GetAddress(0);
+        for (const auto hostIdx : std::views::iota(0u, NUM_HOSTS))
+        {
+            Ptr<Ipv4> hostIpv4 = currentSubnet.Get(hostIdx)->GetObject<Ipv4>();
+            Ptr<Ipv4StaticRouting> hostStaticRouting = staticRoutingHelper.GetStaticRouting(hostIpv4);
+            // Interface 1 is the CSMA device (Interface 0 is loopback)
+            hostStaticRouting->SetDefaultRoute(routerGateway, 1);
+        }
+
+        // Set Host Topology Grid Coordinates
         auto hostPositions = CreateObject<ListPositionAllocator>();
         for (const auto hostIdx : std::views::iota(0u, NUM_HOSTS))
         {
@@ -84,16 +95,15 @@ int main(int argc, char* argv[])
         mobility.Install(currentSubnet);
     }
 
-    // 5. Compute Autonomous Global Routing Matrices
+    // 5. Compute Autonomous Global Routing Matrices (for the router)
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
     // 6. Deploy Network Testing Applications (Ping Subnet 0 Host 0 -> Subnet 4 Host 0)
-    // Link interface index 0 maps to the shared router; index 1 target represents Host 0
     const Ipv4Address destinationIp = interfaces[4].GetAddress(1); 
     
     PingHelper pingApp(destinationIp);
-    // FIXED: The correct attribute name is "Verbose" taking a BooleanValue
-    pingApp.SetAttribute("Verbose", BooleanValue(true));
+    // FIX: Use VerboseMode instead of Verbose in modern ns-3
+    pingApp.SetAttribute("VerboseMode", EnumValue(Ping::VerboseMode::VERBOSE));
 
     auto appContainer = pingApp.Install(subnetHosts[0].Get(0));
     appContainer.Start(Seconds(1.0));
@@ -104,7 +114,6 @@ int main(int argc, char* argv[])
     visualizer.UpdateNodeDescription(routerNode.Get(0), "MainRouter");
     visualizer.UpdateNodeColor(routerNode.Get(0), 255, 0, 0);
 
-    // Iterating multi-dimensional configurations cleanly with structural patterns
     for (const auto subnetIdx : std::views::iota(0u, NUM_SUBNETS))
     {
         const uint8_t blueGradient = static_cast<uint8_t>(255 - (subnetIdx * 40));
