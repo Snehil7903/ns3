@@ -12,23 +12,26 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("BusTopologyWithNetAnim");
 
-int main (int argc, char *argv[]) 
+int main(int argc, char *argv[]) 
 {
-    CommandLine cmd (__FILE__);
+    CommandLine cmd;
     cmd.Parse(argc, argv);
 
     LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
     LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
 
+    // Create 4 nodes for the CSMA bus topology
     NodeContainer nodes;
     nodes.Create(4);
 
+    // Configure CSMA channel attributes
     CsmaHelper csma;
     csma.SetChannelAttribute("DataRate", StringValue("10Mbps"));
     csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560))); 
 
     NetDeviceContainer devices = csma.Install(nodes);
 
+    // Install Internet stack and assign IPv4 addresses
     InternetStackHelper stack;
     stack.Install(nodes);
 
@@ -56,10 +59,7 @@ int main (int argc, char *argv[])
         clientApp.Stop(Seconds(10.0));
     }
 
-    // Populate routing tables so nodes know how to route echo packets
-    Ipv4GlobalRoutingHelper::PopulateRoutingTables();
-
-    // --- Mobility Model Configuration for NetAnim Positions ---
+    // Configure Mobility Model for static NetAnim node positions
     MobilityHelper mobility;
     Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator>();
     
@@ -75,7 +75,7 @@ int main (int argc, char *argv[])
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     mobility.Install(nodes);
 
-    // --- NetAnim Configuration ---
+    // Configure NetAnim output
     AnimationInterface anim("bus-topology.xml");
     anim.EnablePacketMetadata(true);
 
@@ -98,6 +98,7 @@ int main (int argc, char *argv[])
         }
     }
 
+    // Run simulation
     Simulator::Stop(Seconds(11.0));
     Simulator::Run();
     Simulator::Destroy();
