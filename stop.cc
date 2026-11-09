@@ -289,10 +289,8 @@ int main(int argc, char *argv[])
   
   anim.UpdateNodeDescription(nodes.Get(0), "Sender");
   anim.UpdateNodeDescription(nodes.Get(1), "Receiver");
-  anim.EnablePacketMetadata(true);
 
   Simulator::Run();
   Simulator::Destroy();
-  
   return 0;
 }
