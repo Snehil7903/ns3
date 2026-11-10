@@ -75,9 +75,9 @@ int main(int argc, char *argv[])
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     mobility.Install(nodes);
 
-    // Configure NetAnim output
-    AnimationInterface anim("bus-topology.xml");
-    anim.EnablePacketMetadata(true);
+    // FIX: Allocate AnimationInterface dynamically so it persists during Simulator::Run()
+    Ptr<AnimationInterface> anim = CreateObject<AnimationInterface>("bus-topology.xml");
+    anim->EnablePacketMetadata(true);
 
     for (uint32_t i = 0; i < totalNodes; ++i) 
     {
@@ -87,14 +87,14 @@ int main(int argc, char *argv[])
         if (i == 0) 
         {
             oss << "Server";
-            anim.UpdateNodeDescription(nodeId, oss.str());
-            anim.UpdateNodeColor(nodeId, 255, 0, 0); // Red for Server
+            anim->UpdateNodeDescription(nodeId, oss.str());
+            anim->UpdateNodeColor(nodeId, 255, 0, 0); // Red for Server
         } 
         else 
         {
             oss << "Client " << i;
-            anim.UpdateNodeDescription(nodeId, oss.str());
-            anim.UpdateNodeColor(nodeId, 0, 0, 255); // Blue for Clients
+            anim->UpdateNodeDescription(nodeId, oss.str());
+            anim->UpdateNodeColor(nodeId, 0, 0, 255); // Blue for Clients
         }
     }
 
