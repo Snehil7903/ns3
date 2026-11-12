@@ -14,7 +14,7 @@ NS_LOG_COMPONENT_DEFINE("BusTopologyWithNetAnim");
 
 int main(int argc, char *argv[]) 
 {
-    CommandLine cmd;
+    CommandLine cmd(__FILE__);
     cmd.Parse(argc, argv);
 
     LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
@@ -38,6 +38,9 @@ int main(int argc, char *argv[])
     Ipv4AddressHelper address;
     address.SetBase("10.1.1.0", "255.255.255.0");
     Ipv4InterfaceContainer interfaces = address.Assign(devices);
+
+    // Populate routing tables
+    Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
     // Setup UDP Echo Server on Node 0
     UdpEchoServerHelper echoServer(9);
@@ -75,7 +78,7 @@ int main(int argc, char *argv[])
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     mobility.Install(nodes);
 
-    // CORRECT: Reverted back to stack allocation as required by ns-3 API
+    // Configure NetAnim
     AnimationInterface anim("bus-topology.xml");
     anim.EnablePacketMetadata(true);
 
