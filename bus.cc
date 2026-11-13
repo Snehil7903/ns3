@@ -20,18 +20,18 @@ int main(int argc, char *argv[])
     LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
     LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
 
-    // Create 4 nodes for the CSMA bus topology
+    // 1. Create 4 nodes for the CSMA bus topology
     NodeContainer nodes;
     nodes.Create(4);
 
-    // Configure CSMA channel attributes
+    // 2. Configure CSMA channel attributes
     CsmaHelper csma;
     csma.SetChannelAttribute("DataRate", StringValue("10Mbps"));
     csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560))); 
 
     NetDeviceContainer devices = csma.Install(nodes);
 
-    // Install Internet stack and assign IPv4 addresses
+    // 3. Install Internet stack and assign IPv4 addresses
     InternetStackHelper stack;
     stack.Install(nodes);
 
@@ -39,16 +39,13 @@ int main(int argc, char *argv[])
     address.SetBase("10.1.1.0", "255.255.255.0");
     Ipv4InterfaceContainer interfaces = address.Assign(devices);
 
-    // Populate routing tables
-    Ipv4GlobalRoutingHelper::PopulateRoutingTables();
-
-    // Setup UDP Echo Server on Node 0
+    // 4. Setup UDP Echo Server on Node 0
     UdpEchoServerHelper echoServer(9);
     ApplicationContainer serverApp = echoServer.Install(nodes.Get(0));
     serverApp.Start(Seconds(1.0));
     serverApp.Stop(Seconds(10.0));
 
-    // Setup UDP Echo Clients on Nodes 1, 2, and 3
+    // 5. Setup UDP Echo Clients on Nodes 1, 2, and 3
     const uint32_t totalNodes = nodes.GetN();
     for (uint32_t i = 1; i < totalNodes; ++i) 
     {
@@ -62,46 +59,44 @@ int main(int argc, char *argv[])
         clientApp.Stop(Seconds(10.0));
     }
 
-    // Configure Mobility Model for static NetAnim node positions
+    // 6. Configure Mobility Model
     MobilityHelper mobility;
-    Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator>();
-    
+    mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+    mobility.Install(nodes);
+
+    // 7. Configure NetAnim with explicit node coordinates
+    AnimationInterface anim("bus-topology.xml");
+    anim.EnablePacketMetadata(true);
+
     double xStart = 10.0;
     double yPos = 30.0;
     double nodeSpacing = 20.0;
 
     for (uint32_t i = 0; i < totalNodes; ++i) 
     {
-        positionAlloc->Add(Vector(xStart + (static_cast<double>(i) * nodeSpacing), yPos, 0.0));
-    }
-    mobility.SetPositionAllocator(positionAlloc);
-    mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-    mobility.Install(nodes);
+        Ptr<Node> node = nodes.Get(i);
+        uint32_t nodeId = node->GetId();
+        double xPos = xStart + (static_cast<double>(i) * nodeSpacing);
 
-    // Configure NetAnim
-    AnimationInterface anim("bus-topology.xml");
-    anim.EnablePacketMetadata(true);
+        // Explicitly set NetAnim coordinates to prevent overlap at (0,0)
+        anim.SetConstantPosition(node, xPos, yPos);
 
-    for (uint32_t i = 0; i < totalNodes; ++i) 
-    {
-        uint32_t nodeId = nodes.Get(i)->GetId();
-        std::ostringstream oss;
-        
         if (i == 0) 
         {
-            oss << "Server";
-            anim.UpdateNodeDescription(nodeId, oss.str());
+            anim.UpdateNodeDescription(nodeId, "Server");
             anim.UpdateNodeColor(nodeId, 255, 0, 0); // Red for Server
         } 
         else 
         {
-            oss << "Client " << i;
-            anim.UpdateNodeDescription(nodeId, oss.str());
+            anim.UpdateNodeDescription(nodeId, "Client " + std::to_string(i));
             anim.UpdateNodeColor(nodeId, 0, 0, 255); // Blue for Clients
         }
     }
 
-    // Run simulation
+    // Optional: Enable PCAP tracing for Wireshark analysis
+    csma.EnablePcapAll("bus-topology", false);
+
+    // 8. Run simulation
     Simulator::Stop(Seconds(11.0));
     Simulator::Run();
     Simulator::Destroy();
