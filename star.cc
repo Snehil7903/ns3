@@ -4,11 +4,10 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/netanim-module.h"
-#include "ns3/mobility-module.h" 
+#include "ns3/mobility-module.h"
 #include <cmath>
 #include <vector>
-#include <sstream> 
-#include <string>  
+#include <string>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -46,6 +45,9 @@ int main(int argc, char *argv[])
     p2p.SetDeviceAttribute("DataRate", StringValue("5Mbps"));
     p2p.SetChannelAttribute("Delay", StringValue("2ms"));
 
+    Ipv4AddressHelper address;
+    address.SetBase("10.1.1.0", "255.255.255.0");
+
     std::vector<Ipv4InterfaceContainer> linkInterfaces;
 
     // Connect each leaf to the hub
@@ -54,22 +56,21 @@ int main(int argc, char *argv[])
         NodeContainer pair(hubNode.Get(0), leafNodes.Get(i));
         NetDeviceContainer linkDevices = p2p.Install(pair);
 
-        // Assign a unique subnet to each point-to-point link
-        std::ostringstream subnet;
-        subnet << "10.1." << i + 1 << ".0";
-
-        Ipv4AddressHelper address;
-        address.SetBase(subnet.str().c_str(), "255.255.255.0");
-
         Ipv4InterfaceContainer iface = address.Assign(linkDevices);
-        linkInterfaces.push_back(iface); 
+        linkInterfaces.push_back(iface);
+
+        // Automatically increment to the next /24 subnet (e.g., 10.1.2.0, 10.1.3.0...)
+        address.NewNetwork();
     }
+
+    // Dynamic simulation duration so all staggered clients finish
+    double simStopTime = 5.0 + nLeaf;
 
     // 4. Install UDP Echo Server on Hub
     UdpEchoServerHelper echoServer(9);
     ApplicationContainer serverApp = echoServer.Install(hubNode.Get(0));
     serverApp.Start(Seconds(1.0));
-    serverApp.Stop(Seconds(20.0));
+    serverApp.Stop(Seconds(simStopTime));
 
     // 5. Install UDP Echo Clients on Leaves
     for (uint32_t i = 0; i < nLeaf; i++)
@@ -82,14 +83,14 @@ int main(int argc, char *argv[])
         echoClient.SetAttribute("PacketSize", UintegerValue(1024));
 
         ApplicationContainer clientApp = echoClient.Install(leafNodes.Get(i));
-        clientApp.Start(Seconds(2.0 + i)); // Staggered start times
-        clientApp.Stop(Seconds(20.0));
+        clientApp.Start(Seconds(2.0 + i));
+        clientApp.Stop(Seconds(simStopTime));
     }
 
     // Initialize Global Routing Tables
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-    // 6. Mobility Setup (Required for setting node positions correctly)
+    // 6. Mobility Setup
     MobilityHelper mobility;
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     mobility.Install(hubNode);
@@ -98,35 +99,31 @@ int main(int argc, char *argv[])
     // 7. NetAnim Visualization Setup
     AnimationInterface anim("star-topology.xml");
 
-    // Position Hub at (50, 50) using the instantiated anim object
     Ptr<Node> hubPtr = hubNode.Get(0);
     anim.SetConstantPosition(hubPtr, 50.0, 50.0);
     anim.UpdateNodeDescription(hubPtr, "Hub");
     anim.UpdateNodeColor(hubPtr, 255, 0, 0); // Red
 
-    // Position Leaves in a circle around the Hub
     double radius = 30.0;
     for (uint32_t i = 0; i < nLeaf; i++)
     {
         Ptr<Node> leafPtr = leafNodes.Get(i);
-        
+
         double angle = (360.0 / nLeaf) * i;
         double rad = angle * M_PI / 180.0;
 
         double x = 50.0 + radius * std::cos(rad);
         double y = 50.0 + radius * std::sin(rad);
 
-        // Fixed here to use instance method call
         anim.SetConstantPosition(leafPtr, x, y);
         anim.UpdateNodeDescription(leafPtr, "Leaf-" + std::to_string(i));
         anim.UpdateNodeColor(leafPtr, 0, 0, 255); // Blue
     }
 
-    // Enable packet tracing to see packet flow in NetAnim
-    anim.EnablePacketMetadata(true); 
+    anim.EnablePacketMetadata(true);
 
     // 8. Run Simulation
-    Simulator::Stop(Seconds(20.0));
+    Simulator::Stop(Seconds(simStopTime));
     Simulator::Run();
     Simulator::Destroy();
 
