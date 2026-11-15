@@ -1,7 +1,6 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <format>
 #include <ranges>
 #include <algorithm>
 
@@ -40,7 +39,7 @@ int main(int argc, char* argv[])
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
 
     auto routerPosition = CreateObject<ListPositionAllocator>();
-    routerPosition->Add(Vector(50.0, 75.0, 0.0)); 
+    routerPosition->Add(Vector(50.0, 120.0, 0.0)); 
     mobility.SetPositionAllocator(routerPosition);
     mobility.Install(routerNode);
 
@@ -70,12 +69,12 @@ int main(int argc, char* argv[])
 
         auto netDevices = csma.Install(localNetwork);
 
-        // Assign IP addresses (Index 0 = Router, Indices 1..10 = Hosts)
-        std::string baseIp = std::format("192.168.72.{}", subnetIdx * 16);
+        // FIX 1: Replaced std::format with std::to_string for broad ns-3 CMake compatibility
+        std::string baseIp = "192.168.72." + std::to_string(subnetIdx * 16);
         addressAllocator.SetBase(baseIp.c_str(), subnetMask);
         interfaces[subnetIdx] = addressAllocator.Assign(netDevices); 
 
-        // FIX: Set Default Gateway on each host pointing to the Router's subnet IP
+        // Set Default Gateway on each host pointing to the Router's subnet IP
         Ipv4Address routerGateway = interfaces[subnetIdx].GetAddress(0);
         for (const auto hostIdx : std::views::iota(0u, NUM_HOSTS))
         {
@@ -101,9 +100,10 @@ int main(int argc, char* argv[])
     // 6. Deploy Network Testing Applications (Ping Subnet 0 Host 0 -> Subnet 4 Host 0)
     const Ipv4Address destinationIp = interfaces[4].GetAddress(1); 
     
-    PingHelper pingApp(destinationIp);
-    // FIX: Use VerboseMode instead of Verbose in modern ns-3
-    pingApp.SetAttribute("VerboseMode", EnumValue(Ping::VerboseMode::VERBOSE));
+    // FIX 2: Pass destination IP via Attribute (standard in ns-3.38+) & use StringValue for VerboseMode
+    PingHelper pingApp;
+    pingApp.SetAttribute("Destination", AddressValue(destinationIp));
+    pingApp.SetAttribute("VerboseMode", StringValue("Verbose"));
 
     auto appContainer = pingApp.Install(subnetHosts[0].Get(0));
     appContainer.Start(Seconds(1.0));
@@ -121,7 +121,8 @@ int main(int argc, char* argv[])
         for (const auto hostIdx : std::views::iota(0u, NUM_HOSTS))
         {
             auto currentHost = subnetHosts[subnetIdx].Get(hostIdx);
-            visualizer.UpdateNodeDescription(currentHost, "Host");
+            std::string hostLabel = "S" + std::to_string(subnetIdx) + "-H" + std::to_string(hostIdx);
+            visualizer.UpdateNodeDescription(currentHost, hostLabel);
             visualizer.UpdateNodeColor(currentHost, 0, 0, blueGradient);
         }
     }
