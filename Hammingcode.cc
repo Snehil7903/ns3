@@ -1,47 +1,55 @@
-#include <iostream> 
-#include <cmath> 
-#include "ns3/core-module.h" 
-#include "ns3/network-module.h" 
-#include "ns3/internet-module.h" 
-#include "ns3/point-to-point-module.h" 
-#include "ns3/applications-module.h" 
+#include <iostream>
+#include <cmath>
+#include "ns3/core-module.h"
+#include "ns3/network-module.h"
+#include "ns3/internet-module.h"
+#include "ns3/point-to-point-module.h"
+#include "ns3/applications-module.h"
 
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("HammingCodeExample");
 
-// Function to calculate residual packet error rate after Hamming (7,4) correction 
-double CalculateHammingResidualError (double ber, uint32_t totalFrameSize) 
-{ 
-    // Probability of 2 or more errors in a 7-bit block (Uncorrectable by Hamming) 
-    // P(unfixable) = 1 - [P(0 errors) + P(1 error)] 
+// Calculate residual packet error rate after Hamming (7,4) correction
+double CalculateHammingResidualError (double ber, uint32_t totalFrameSize)
+{
+    if (ber <= 0.0)
+    {
+        return 0.0;
+    }
+    if (ber >= 1.0)
+    {
+        return 1.0;
+    }
+
+    // Probability of 2 or more errors in a 7-bit block (uncorrectable by Hamming)
     double p0 = std::pow (1.0 - ber, 7);
     double p1 = 7.0 * ber * std::pow (1.0 - ber, 6);
     double pBlockError = 1.0 - (p0 + p1);
 
-    // Calculate total data bits and map safely to 4-bit data blocks.
-    // (bits + 3) / 4 performs integer division ceiling safely without float precision issues.
+    // Total data bits mapped to 4-bit data blocks (ceiling division)
     uint32_t totalBits = totalFrameSize * 8;
     uint32_t numBlocks = (totalBits + 3) / 4;
-    
-    // Probability that at least one block in the packet fails 
-    return 1.0 - std::pow (1.0 - pBlockError, static_cast<double>(numBlocks));
-} 
 
-int main (int argc, char *argv[]) 
-{ 
-    double ber = 0.001; // Raw Bit Error Rate (1 in 1000 bits flip)
+    // Numerically stable computation of 1 - (1 - pBlockError)^numBlocks
+    return -std::expm1 (static_cast<double> (numBlocks) * std::log1p (-pBlockError));
+}
+
+int main (int argc, char *argv[])
+{
+    double ber = 0.001; // Raw Bit Error Rate
     uint32_t payloadSize = 1024;
-    
-    // IP (20) + UDP (8) + PPP (2) = 30 bytes of overhead
-    uint32_t overheadSize = 30; 
+    uint32_t overheadSize = 30; // IP (20) + UDP (8) + PPP (2)
 
     CommandLine cmd (__FILE__);
     cmd.AddValue ("ber", "Raw Bit Error Rate", ber);
     cmd.AddValue ("payloadSize", "UDP Payload Size", payloadSize);
     cmd.Parse (argc, argv);
 
-    // Recalculate frame size after command line variables are parsed
+    // Enable application logs to observe sent, received, and dropped packets
+    LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
+    LogComponentEnable ("UdpEchoServerApplication", LOG_LEVEL_INFO);
+
     uint32_t frameSize = payloadSize + overheadSize;
 
     NodeContainer nodes;
@@ -50,21 +58,19 @@ int main (int argc, char *argv[])
     PointToPointHelper pointToPoint;
     pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
     pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
-    
-    NetDeviceContainer devices;
-    devices = pointToPoint.Install (nodes);
 
-    // --- Hamming Error Correction Simulation --- 
+    NetDeviceContainer devices = pointToPoint.Install (nodes);
+
+    // --- Hamming Error Correction Simulation ---
     double residualPER = CalculateHammingResidualError (ber, frameSize);
-    
+
     Ptr<RateErrorModel> em = CreateObject<RateErrorModel> ();
     em->SetAttribute ("ErrorRate", DoubleValue (residualPER));
-    
-    // FIX: Use EnumValue and cast the RateErrorModel enum correctly instead of using StringValue
     em->SetAttribute ("ErrorUnit", EnumValue (RateErrorModel::ERROR_UNIT_PACKET));
-    
+    em->AssignStreams (1); // Deterministic RNG stream
+
     devices.Get (1)->SetAttribute ("ReceiveErrorModel", PointerValue (em));
-    
+
     std::cout << "Raw BER: " << ber << std::endl;
     std::cout << "Total Unencoded Frame Size: " << frameSize << " bytes" << std::endl;
     std::cout << "Residual Packet Error Rate after Hamming (7,4): " << residualPER << std::endl;
@@ -76,23 +82,22 @@ int main (int argc, char *argv[])
     address.SetBase ("10.1.1.0", "255.255.255.0");
     Ipv4InterfaceContainer interfaces = address.Assign (devices);
 
-    // Standard UDP Echo setup 
     UdpEchoServerHelper echoServer (9);
     ApplicationContainer serverApps = echoServer.Install (nodes.Get (1));
     serverApps.Start (Seconds (1.0));
-    serverApps.Stop (Seconds (10.0));
+    serverApps.Stop (Seconds (12.0));
 
     UdpEchoClientHelper echoClient (interfaces.GetAddress (1), 9);
     echoClient.SetAttribute ("MaxPackets", UintegerValue (10));
     echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
     echoClient.SetAttribute ("PacketSize", UintegerValue (payloadSize));
-    
+
     ApplicationContainer clientApps = echoClient.Install (nodes.Get (0));
     clientApps.Start (Seconds (2.0));
-    clientApps.Stop (Seconds (10.0));
+    clientApps.Stop (Seconds (12.0));
 
     Simulator::Run ();
     Simulator::Destroy ();
-    
+
     return 0;
 }
