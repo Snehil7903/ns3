@@ -45,8 +45,9 @@ int main(int argc, char *argv[])
     p2p.SetDeviceAttribute("DataRate", StringValue("5Mbps"));
     p2p.SetChannelAttribute("Delay", StringValue("2ms"));
 
+    // Use /30 subnet mask (standard for 2-node P2P links)
     Ipv4AddressHelper address;
-    address.SetBase("10.1.1.0", "255.255.255.0");
+    address.SetBase("10.1.1.0", "255.255.255.252");
 
     std::vector<Ipv4InterfaceContainer> linkInterfaces;
 
@@ -59,11 +60,9 @@ int main(int argc, char *argv[])
         Ipv4InterfaceContainer iface = address.Assign(linkDevices);
         linkInterfaces.push_back(iface);
 
-        // Automatically increment to the next /24 subnet (e.g., 10.1.2.0, 10.1.3.0...)
         address.NewNetwork();
     }
 
-    // Dynamic simulation duration so all staggered clients finish
     double simStopTime = 5.0 + nLeaf;
 
     // 4. Install UDP Echo Server on Hub
@@ -90,8 +89,25 @@ int main(int argc, char *argv[])
     // Initialize Global Routing Tables
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-    // 6. Mobility Setup
+    // 6. Mobility Setup (Set exact coordinates via PositionAllocator)
     MobilityHelper mobility;
+    Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator>();
+
+    // Hub at center (50, 50)
+    positionAlloc->Add(Vector(50.0, 50.0, 0.0));
+
+    // Leaves arranged in a circle
+    double radius = 30.0;
+    for (uint32_t i = 0; i < nLeaf; i++)
+    {
+        double angle = (360.0 / nLeaf) * i;
+        double rad = angle * M_PI / 180.0;
+        double x = 50.0 + radius * std::cos(rad);
+        double y = 50.0 + radius * std::sin(rad);
+        positionAlloc->Add(Vector(x, y, 0.0));
+    }
+
+    mobility.SetPositionAllocator(positionAlloc);
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     mobility.Install(hubNode);
     mobility.Install(leafNodes);
@@ -100,22 +116,12 @@ int main(int argc, char *argv[])
     AnimationInterface anim("star-topology.xml");
 
     Ptr<Node> hubPtr = hubNode.Get(0);
-    anim.SetConstantPosition(hubPtr, 50.0, 50.0);
     anim.UpdateNodeDescription(hubPtr, "Hub");
     anim.UpdateNodeColor(hubPtr, 255, 0, 0); // Red
 
-    double radius = 30.0;
     for (uint32_t i = 0; i < nLeaf; i++)
     {
         Ptr<Node> leafPtr = leafNodes.Get(i);
-
-        double angle = (360.0 / nLeaf) * i;
-        double rad = angle * M_PI / 180.0;
-
-        double x = 50.0 + radius * std::cos(rad);
-        double y = 50.0 + radius * std::sin(rad);
-
-        anim.SetConstantPosition(leafPtr, x, y);
         anim.UpdateNodeDescription(leafPtr, "Leaf-" + std::to_string(i));
         anim.UpdateNodeColor(leafPtr, 0, 0, 255); // Blue
     }
