@@ -69,7 +69,6 @@ int main(int argc, char* argv[])
 
         auto netDevices = csma.Install(localNetwork);
 
-        // FIX 1: Replaced std::format with std::to_string for broad ns-3 CMake compatibility
         std::string baseIp = "192.168.72." + std::to_string(subnetIdx * 16);
         addressAllocator.SetBase(baseIp.c_str(), subnetMask);
         interfaces[subnetIdx] = addressAllocator.Assign(netDevices); 
@@ -94,22 +93,23 @@ int main(int argc, char* argv[])
         mobility.Install(currentSubnet);
     }
 
-    // 5. Compute Autonomous Global Routing Matrices (for the router)
-    Ipv4GlobalRoutingHelper::PopulateRoutingTables();
+    // FIX 1: Removed Ipv4GlobalRoutingHelper::PopulateRoutingTables().
+    // The central router is directly attached to all 5 subnets, so its kernel
+    // interface routing table already knows every destination subnet automatically.
 
-    // 6. Deploy Network Testing Applications (Ping Subnet 0 Host 0 -> Subnet 4 Host 0)
+    // 5. Deploy Network Testing Applications (Ping Subnet 0 Host 0 -> Subnet 4 Host 0)
     const Ipv4Address destinationIp = interfaces[4].GetAddress(1); 
     
-    // FIX 2: Pass destination IP via Attribute (standard in ns-3.38+) & use StringValue for VerboseMode
-    PingHelper pingApp;
-    pingApp.SetAttribute("Destination", AddressValue(destinationIp));
-    pingApp.SetAttribute("VerboseMode", StringValue("Verbose"));
+    // FIX 2: Pass destinationIp directly into the PingHelper constructor (ns-3.38+)
+    // and use Ping::VerboseMode enum value instead of StringValue
+    PingHelper pingApp(destinationIp);
+    pingApp.SetAttribute("VerboseMode", EnumValue(Ping::VerboseMode::VERBOSE));
 
     auto appContainer = pingApp.Install(subnetHosts[0].Get(0));
     appContainer.Start(Seconds(1.0));
     appContainer.Stop(Seconds(10.0));
 
-    // 7. Initialize NetAnim Visualizer Configuration
+    // 6. Initialize NetAnim Visualizer Configuration
     AnimationInterface visualizer{"five_subnets.xml"};
     visualizer.UpdateNodeDescription(routerNode.Get(0), "MainRouter");
     visualizer.UpdateNodeColor(routerNode.Get(0), 255, 0, 0);
@@ -127,7 +127,7 @@ int main(int argc, char* argv[])
         }
     }
 
-    // 8. Execute Discrete Event Simulation Engine
+    // 7. Execute Discrete Event Simulation Engine
     Simulator::Stop(Seconds(11.0));
     Simulator::Run();
     Simulator::Destroy();
