@@ -59,28 +59,30 @@ int main(int argc, char *argv[])
         clientApp.Stop(Seconds(10.0));
     }
 
-    // 6. Configure Mobility Model
-    MobilityHelper mobility;
-    mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-    mobility.Install(nodes);
-
-    // 7. Configure NetAnim with explicit node coordinates
-    AnimationInterface anim("bus-topology.xml");
-    anim.EnablePacketMetadata(true);
-
+    // 6. Configure Mobility Model with explicit coordinates
     double xStart = 10.0;
     double yPos = 30.0;
     double nodeSpacing = 20.0;
 
+    Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator>();
     for (uint32_t i = 0; i < totalNodes; ++i) 
     {
-        Ptr<Node> node = nodes.Get(i);
-        uint32_t nodeId = node->GetId();
         double xPos = xStart + (static_cast<double>(i) * nodeSpacing);
+        positionAlloc->Add(Vector(xPos, yPos, 0.0));
+    }
 
-        // Explicitly set NetAnim coordinates to prevent overlap at (0,0)
-        anim.SetConstantPosition(node, xPos, yPos);
+    MobilityHelper mobility;
+    mobility.SetPositionAllocator(positionAlloc);
+    mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+    mobility.Install(nodes);
 
+    // 7. Configure NetAnim
+    AnimationInterface anim("bus-topology.xml");
+    anim.EnablePacketMetadata(true);
+
+    for (uint32_t i = 0; i < totalNodes; ++i) 
+    {
+        uint32_t nodeId = nodes.Get(i)->GetId();
         if (i == 0) 
         {
             anim.UpdateNodeDescription(nodeId, "Server");
