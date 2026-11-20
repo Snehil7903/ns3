@@ -7,7 +7,7 @@
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
-#include "ns3/internet-apps-module.h" 
+#include "ns3/internet-apps-module.h"
 #include "ns3/csma-module.h"
 #include "ns3/netanim-module.h"
 #include "ns3/applications-module.h"
@@ -24,9 +24,6 @@ int main(int argc, char* argv[])
     CommandLine cmd(__FILE__);
     cmd.Parse(argc, argv);
 
-    // Enable IP Forwarding globally so the central router can route between subnets
-    Config::SetDefault("ns3::Ipv4::IpForward", BooleanValue(true));
-
     // 1. Initialize Core Router Architecture
     NodeContainer routerNode;
     routerNode.Create(1);
@@ -34,12 +31,16 @@ int main(int argc, char* argv[])
     InternetStackHelper internetStack;
     internetStack.Install(routerNode);
 
+    // Explicitly enable IPv4 forwarding on the router node
+    Ptr<Ipv4> routerIpv4 = routerNode.Get(0)->GetObject<Ipv4>();
+    routerIpv4->SetAttribute("IpForward", BooleanValue(true));
+
     // 2. Configure Global Mobility
     MobilityHelper mobility;
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
 
     auto routerPosition = CreateObject<ListPositionAllocator>();
-    routerPosition->Add(Vector(50.0, 120.0, 0.0)); 
+    routerPosition->Add(Vector(50.0, 120.0, 0.0));
     mobility.SetPositionAllocator(routerPosition);
     mobility.Install(routerNode);
 
@@ -55,14 +56,14 @@ int main(int argc, char* argv[])
     std::vector<Ipv4InterfaceContainer> interfaces(NUM_SUBNETS);
     Ipv4StaticRoutingHelper staticRoutingHelper;
 
-    // 4. Construct Topologies Dynamically via Modern C++ Ranges
+    // 4. Construct Topologies Dynamically via C++20 Ranges
     for (const auto subnetIdx : std::views::iota(0u, NUM_SUBNETS))
     {
         auto& currentSubnet = subnetHosts[subnetIdx];
         currentSubnet.Create(NUM_HOSTS);
         internetStack.Install(currentSubnet);
 
-        // Build localized bus topology segment (Link containing Router + local hosts)
+        // Build localized bus topology segment (Router + local hosts)
         NodeContainer localNetwork;
         localNetwork.Add(routerNode.Get(0));
         localNetwork.Add(currentSubnet);
@@ -71,7 +72,7 @@ int main(int argc, char* argv[])
 
         std::string baseIp = "192.168.72." + std::to_string(subnetIdx * 16);
         addressAllocator.SetBase(baseIp.c_str(), subnetMask);
-        interfaces[subnetIdx] = addressAllocator.Assign(netDevices); 
+        interfaces[subnetIdx] = addressAllocator.Assign(netDevices);
 
         // Set Default Gateway on each host pointing to the Router's subnet IP
         Ipv4Address routerGateway = interfaces[subnetIdx].GetAddress(0);
@@ -93,15 +94,9 @@ int main(int argc, char* argv[])
         mobility.Install(currentSubnet);
     }
 
-    // FIX 1: Removed Ipv4GlobalRoutingHelper::PopulateRoutingTables().
-    // The central router is directly attached to all 5 subnets, so its kernel
-    // interface routing table already knows every destination subnet automatically.
-
     // 5. Deploy Network Testing Applications (Ping Subnet 0 Host 0 -> Subnet 4 Host 0)
-    const Ipv4Address destinationIp = interfaces[4].GetAddress(1); 
-    
-    // FIX 2: Pass destinationIp directly into the PingHelper constructor (ns-3.38+)
-    // and use Ping::VerboseMode enum value instead of StringValue
+    const Ipv4Address destinationIp = interfaces[4].GetAddress(1);
+
     PingHelper pingApp(destinationIp);
     pingApp.SetAttribute("VerboseMode", EnumValue(Ping::VerboseMode::VERBOSE));
 
@@ -111,13 +106,14 @@ int main(int argc, char* argv[])
 
     // 6. Initialize NetAnim Visualizer Configuration
     AnimationInterface visualizer{"five_subnets.xml"};
+    visualizer.EnablePacketMetadata(true);
     visualizer.UpdateNodeDescription(routerNode.Get(0), "MainRouter");
     visualizer.UpdateNodeColor(routerNode.Get(0), 255, 0, 0);
 
     for (const auto subnetIdx : std::views::iota(0u, NUM_SUBNETS))
     {
         const uint8_t blueGradient = static_cast<uint8_t>(255 - (subnetIdx * 40));
-        
+
         for (const auto hostIdx : std::views::iota(0u, NUM_HOSTS))
         {
             auto currentHost = subnetHosts[subnetIdx].Get(hostIdx);
