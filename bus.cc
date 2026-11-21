@@ -1,5 +1,4 @@
 #include <string>
-#include <sstream>
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
@@ -12,8 +11,9 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("BusTopologyWithNetAnim");
 
-int main(int argc, char *argv[]) 
+int main(int argc, char* argv[])
 {
+    // Note: If using ns-3.35 or older, change to: CommandLine cmd;
     CommandLine cmd(__FILE__);
     cmd.Parse(argc, argv);
 
@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
     // 2. Configure CSMA channel attributes
     CsmaHelper csma;
     csma.SetChannelAttribute("DataRate", StringValue("10Mbps"));
-    csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560))); 
+    csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560)));
 
     NetDeviceContainer devices = csma.Install(nodes);
 
@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
 
     // 5. Setup UDP Echo Clients on Nodes 1, 2, and 3
     const uint32_t totalNodes = nodes.GetN();
-    for (uint32_t i = 1; i < totalNodes; ++i) 
+    for (uint32_t i = 1; i < totalNodes; ++i)
     {
         UdpEchoClientHelper echoClient(interfaces.GetAddress(0), 9);
         echoClient.SetAttribute("MaxPackets", UintegerValue(1));
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
     double nodeSpacing = 20.0;
 
     Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator>();
-    for (uint32_t i = 0; i < totalNodes; ++i) 
+    for (uint32_t i = 0; i < totalNodes; ++i)
     {
         double xPos = xStart + (static_cast<double>(i) * nodeSpacing);
         positionAlloc->Add(Vector(xPos, yPos, 0.0));
@@ -80,22 +80,24 @@ int main(int argc, char *argv[])
     AnimationInterface anim("bus-topology.xml");
     anim.EnablePacketMetadata(true);
 
-    for (uint32_t i = 0; i < totalNodes; ++i) 
+    for (uint32_t i = 0; i < totalNodes; ++i)
     {
-        uint32_t nodeId = nodes.Get(i)->GetId();
-        if (i == 0) 
+        Ptr<Node> node = nodes.Get(i);
+        uint32_t nodeId = node->GetId();
+        
+        if (i == 0)
         {
-            anim.UpdateNodeDescription(nodeId, "Server");
-            anim.UpdateNodeColor(nodeId, 255, 0, 0); // Red for Server
-        } 
-        else 
+            anim.UpdateNodeDescription(node, "Server");
+            anim.UpdateNodeColor(node, 255, 0, 0); // Red for Server
+        }
+        else
         {
-            anim.UpdateNodeDescription(nodeId, "Client " + std::to_string(i));
-            anim.UpdateNodeColor(nodeId, 0, 0, 255); // Blue for Clients
+            anim.UpdateNodeDescription(node, "Client " + std::to_string(i));
+            anim.UpdateNodeColor(node, 0, 0, 255); // Blue for Clients
         }
     }
 
-    // Optional: Enable PCAP tracing for Wireshark analysis
+    // Enable PCAP tracing for Wireshark analysis
     csma.EnablePcapAll("bus-topology", false);
 
     // 8. Run simulation
