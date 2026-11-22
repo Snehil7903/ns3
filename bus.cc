@@ -83,8 +83,7 @@ int main(int argc, char* argv[])
     for (uint32_t i = 0; i < totalNodes; ++i)
     {
         Ptr<Node> node = nodes.Get(i);
-        uint32_t nodeId = node->GetId();
-        
+
         if (i == 0)
         {
             anim.UpdateNodeDescription(node, "Server");
