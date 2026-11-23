@@ -24,6 +24,9 @@ int main(int argc, char* argv[])
     CommandLine cmd(__FILE__);
     cmd.Parse(argc, argv);
 
+    // Enable packet metadata globally BEFORE creating packets/apps for NetAnim
+    PacketMetadata::Enable();
+
     // 1. Initialize Core Router Architecture
     NodeContainer routerNode;
     routerNode.Create(1);
@@ -97,8 +100,18 @@ int main(int argc, char* argv[])
     // 5. Deploy Network Testing Applications (Ping Subnet 0 Host 0 -> Subnet 4 Host 0)
     const Ipv4Address destinationIp = interfaces[4].GetAddress(1);
 
+    // NOTE: PingHelper requires ns-3.38 or newer.
     PingHelper pingApp(destinationIp);
+    pingApp.SetAttribute("Interval", TimeValue(Seconds(1.0)));
+    pingApp.SetAttribute("Count", UintegerValue(5));
     pingApp.SetAttribute("VerboseMode", EnumValue(Ping::VerboseMode::VERBOSE));
+
+    /*
+    // --- USE THIS INSTEAD IF ON ns-3.37 OR OLDER ---
+    V4PingHelper pingApp(destinationIp);
+    pingApp.SetAttribute("Interval", TimeValue(Seconds(1.0)));
+    pingApp.SetAttribute("Verbose", BooleanValue(true));
+    */
 
     auto appContainer = pingApp.Install(subnetHosts[0].Get(0));
     appContainer.Start(Seconds(1.0));
