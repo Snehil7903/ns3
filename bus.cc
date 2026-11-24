@@ -13,8 +13,7 @@ NS_LOG_COMPONENT_DEFINE("BusTopologyWithNetAnim");
 
 int main(int argc, char* argv[])
 {
-    // Note: If using ns-3.35 or older, change to: CommandLine cmd;
-    CommandLine cmd(__FILE__);
+    CommandLine cmd;
     cmd.Parse(argc, argv);
 
     LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
@@ -50,7 +49,7 @@ int main(int argc, char* argv[])
     for (uint32_t i = 1; i < totalNodes; ++i)
     {
         UdpEchoClientHelper echoClient(interfaces.GetAddress(0), 9);
-        echoClient.SetAttribute("MaxPackets", UintegerValue(1));
+        echoClient.SetAttribute("MaxPackets", UintegerValue(3));
         echoClient.SetAttribute("Interval", TimeValue(Seconds(1.0)));
         echoClient.SetAttribute("PacketSize", UintegerValue(1024));
 
