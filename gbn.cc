@@ -1,8 +1,6 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <ranges>
-#include <algorithm>
 
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
@@ -15,7 +13,6 @@
 
 using namespace ns3;
 
-// Configuration Constants
 constexpr uint32_t NUM_SUBNETS = 5;
 constexpr uint32_t NUM_HOSTS = 10;
 
@@ -34,7 +31,6 @@ int main(int argc, char* argv[])
     InternetStackHelper internetStack;
     internetStack.Install(routerNode);
 
-    // Explicitly enable IPv4 forwarding on the router node
     Ptr<Ipv4> routerIpv4 = routerNode.Get(0)->GetObject<Ipv4>();
     routerIpv4->SetAttribute("IpForward", BooleanValue(true));
 
@@ -42,7 +38,7 @@ int main(int argc, char* argv[])
     MobilityHelper mobility;
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
 
-    auto routerPosition = CreateObject<ListPositionAllocator>();
+    Ptr<ListPositionAllocator> routerPosition = CreateObject<ListPositionAllocator>();
     routerPosition->Add(Vector(50.0, 120.0, 0.0));
     mobility.SetPositionAllocator(routerPosition);
     mobility.Install(routerNode);
@@ -53,16 +49,16 @@ int main(int argc, char* argv[])
     csma.SetChannelAttribute("Delay", TimeValue(NanoSeconds(6560)));
 
     Ipv4AddressHelper addressAllocator;
-    const Ipv4Mask subnetMask{"255.255.255.240"}; // /28 subnet (14 usable hosts)
+    const Ipv4Mask subnetMask("255.255.255.240"); // /28 subnet (14 usable hosts)
 
     std::vector<NodeContainer> subnetHosts(NUM_SUBNETS);
     std::vector<Ipv4InterfaceContainer> interfaces(NUM_SUBNETS);
     Ipv4StaticRoutingHelper staticRoutingHelper;
 
-    // 4. Construct Topologies Dynamically via C++20 Ranges
-    for (const auto subnetIdx : std::views::iota(0u, NUM_SUBNETS))
+    // 4. Construct Topologies
+    for (uint32_t subnetIdx = 0; subnetIdx < NUM_SUBNETS; ++subnetIdx)
     {
-        auto& currentSubnet = subnetHosts[subnetIdx];
+        NodeContainer& currentSubnet = subnetHosts[subnetIdx];
         currentSubnet.Create(NUM_HOSTS);
         internetStack.Install(currentSubnet);
 
@@ -71,7 +67,7 @@ int main(int argc, char* argv[])
         localNetwork.Add(routerNode.Get(0));
         localNetwork.Add(currentSubnet);
 
-        auto netDevices = csma.Install(localNetwork);
+        NetDeviceContainer netDevices = csma.Install(localNetwork);
 
         std::string baseIp = "192.168.72." + std::to_string(subnetIdx * 16);
         addressAllocator.SetBase(baseIp.c_str(), subnetMask);
@@ -79,7 +75,7 @@ int main(int argc, char* argv[])
 
         // Set Default Gateway on each host pointing to the Router's subnet IP
         Ipv4Address routerGateway = interfaces[subnetIdx].GetAddress(0);
-        for (const auto hostIdx : std::views::iota(0u, NUM_HOSTS))
+        for (uint32_t hostIdx = 0; hostIdx < NUM_HOSTS; ++hostIdx)
         {
             Ptr<Ipv4> hostIpv4 = currentSubnet.Get(hostIdx)->GetObject<Ipv4>();
             Ptr<Ipv4StaticRouting> hostStaticRouting = staticRoutingHelper.GetStaticRouting(hostIpv4);
@@ -88,8 +84,8 @@ int main(int argc, char* argv[])
         }
 
         // Set Host Topology Grid Coordinates
-        auto hostPositions = CreateObject<ListPositionAllocator>();
-        for (const auto hostIdx : std::views::iota(0u, NUM_HOSTS))
+        Ptr<ListPositionAllocator> hostPositions = CreateObject<ListPositionAllocator>();
+        for (uint32_t hostIdx = 0; hostIdx < NUM_HOSTS; ++hostIdx)
         {
             hostPositions->Add(Vector(150.0 + (hostIdx * 20.0), (subnetIdx + 1) * 40.0, 0.0));
         }
@@ -100,36 +96,29 @@ int main(int argc, char* argv[])
     // 5. Deploy Network Testing Applications (Ping Subnet 0 Host 0 -> Subnet 4 Host 0)
     const Ipv4Address destinationIp = interfaces[4].GetAddress(1);
 
-    // NOTE: PingHelper requires ns-3.38 or newer.
+    // Note: For ns-3.38+, use PingHelper. For ns-3.37 and older, swap to V4PingHelper.
     PingHelper pingApp(destinationIp);
     pingApp.SetAttribute("Interval", TimeValue(Seconds(1.0)));
     pingApp.SetAttribute("Count", UintegerValue(5));
     pingApp.SetAttribute("VerboseMode", EnumValue(Ping::VerboseMode::VERBOSE));
 
-    /*
-    // --- USE THIS INSTEAD IF ON ns-3.37 OR OLDER ---
-    V4PingHelper pingApp(destinationIp);
-    pingApp.SetAttribute("Interval", TimeValue(Seconds(1.0)));
-    pingApp.SetAttribute("Verbose", BooleanValue(true));
-    */
-
-    auto appContainer = pingApp.Install(subnetHosts[0].Get(0));
+    ApplicationContainer appContainer = pingApp.Install(subnetHosts[0].Get(0));
     appContainer.Start(Seconds(1.0));
     appContainer.Stop(Seconds(10.0));
 
     // 6. Initialize NetAnim Visualizer Configuration
-    AnimationInterface visualizer{"five_subnets.xml"};
+    AnimationInterface visualizer("five_subnets.xml");
     visualizer.EnablePacketMetadata(true);
     visualizer.UpdateNodeDescription(routerNode.Get(0), "MainRouter");
     visualizer.UpdateNodeColor(routerNode.Get(0), 255, 0, 0);
 
-    for (const auto subnetIdx : std::views::iota(0u, NUM_SUBNETS))
+    for (uint32_t subnetIdx = 0; subnetIdx < NUM_SUBNETS; ++subnetIdx)
     {
         const uint8_t blueGradient = static_cast<uint8_t>(255 - (subnetIdx * 40));
 
-        for (const auto hostIdx : std::views::iota(0u, NUM_HOSTS))
+        for (uint32_t hostIdx = 0; hostIdx < NUM_HOSTS; ++hostIdx)
         {
-            auto currentHost = subnetHosts[subnetIdx].Get(hostIdx);
+            Ptr<Node> currentHost = subnetHosts[subnetIdx].Get(hostIdx);
             std::string hostLabel = "S" + std::to_string(subnetIdx) + "-H" + std::to_string(hostIdx);
             visualizer.UpdateNodeDescription(currentHost, hostLabel);
             visualizer.UpdateNodeColor(currentHost, 0, 0, blueGradient);
